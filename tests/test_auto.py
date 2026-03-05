@@ -15,6 +15,8 @@ import depth_estimation.models.zoedepth  # noqa: F401
 import depth_estimation.models.midas  # noqa: F401
 import depth_estimation.models.depth_pro  # noqa: F401
 import depth_estimation.models.pixel_perfect_depth  # noqa: F401
+import depth_estimation.models.depth_fm  # noqa: F401
+import depth_estimation.models.marigold_dc  # noqa: F401
 
 
 class TestModelRegistry:
@@ -23,6 +25,7 @@ class TestModelRegistry:
         expected_types = [
             "depth-anything-v1", "depth-anything-v2", "depth-anything-v3",
             "zoedepth", "midas", "depth-pro", "pixel-perfect-depth",
+            "depth-fm", "marigold-dc",
         ]
         for t in expected_types:
             assert t in types, f"{t} not registered"
@@ -46,14 +49,18 @@ class TestModelRegistry:
             "depth-pro",
             # ppd
             "pixel-perfect-depth",
+            # depth-fm
+            "depth-fm",
+            # marigold-dc
+            "marigold-dc",
         ]
         for v in expected:
             assert v in variants, f"{v} not registered"
 
     def test_total_variants(self):
-        """Total: 3 + 3 + 7 + 1 + 3 + 1 + 1 = 19 variants."""
+        """Total: 3 + 3 + 7 + 1 + 3 + 1 + 1 + 1 + 1 = 21 variants."""
         variants = MODEL_REGISTRY.list_variants()
-        assert len(variants) >= 19
+        assert len(variants) >= 21
 
     def test_resolve_by_type(self):
         model_type = MODEL_REGISTRY.resolve_model_type("depth-anything-v1")
@@ -69,6 +76,8 @@ class TestModelRegistry:
         assert MODEL_REGISTRY.resolve_model_type("depth-pro") == "depth-pro"
         assert MODEL_REGISTRY.resolve_model_type("pixel-perfect-depth") == "pixel-perfect-depth"
         assert MODEL_REGISTRY.resolve_model_type("depth-anything-v3-large") == "depth-anything-v3"
+        assert MODEL_REGISTRY.resolve_model_type("depth-fm") == "depth-fm"
+        assert MODEL_REGISTRY.resolve_model_type("marigold-dc") == "marigold-dc"
 
     def test_resolve_unknown(self):
         with pytest.raises(ValueError, match="Unknown model identifier"):
@@ -86,6 +95,8 @@ class TestAutoDepthModel:
         ("midas-beit-large", "MiDaSModel"),
         ("depth-pro", "DepthProModel"),
         ("pixel-perfect-depth", "PixelPerfectDepthModel"),
+        ("depth-fm", "DepthFMModel"),
+        ("marigold-dc", "MarigoldDCModel"),
     ])
     def test_resolves_correct_class(self, variant_id, expected_class):
         model_cls = MODEL_REGISTRY.get_model_cls(variant_id)
@@ -105,6 +116,8 @@ class TestAutoProcessor:
         "midas-dpt-large", "midas-beit-large",
         "depth-pro",
         "pixel-perfect-depth",
+        "depth-fm",
+        "marigold-dc",
     ])
     def test_returns_processor(self, variant_id):
         """AutoProcessor should return a DepthProcessor for all variants."""

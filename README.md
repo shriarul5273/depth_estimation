@@ -1,8 +1,8 @@
 # depth_estimation
 
-A **Transformers-style Python library** for monocular depth estimation.
+A **Python library** for monocular depth estimation.
 
-Provides a unified, modular API for running, comparing, and integrating depth estimation models — supporting **7 model families** with **19 variants** and designed to accommodate new models with minimal friction.
+Provides a unified, modular API for running, comparing, and integrating depth estimation models — supporting **9 model families** with **21 variants** and designed to accommodate new models with minimal friction.
 
 ## Installation
 
@@ -39,6 +39,8 @@ pip install -e ".[all]"
 | `da3` | `depth-anything-3` | Depth Anything v3 |
 | `depth-pro` | `depth-pro` | Apple DepthPro |
 | `ppd` | `ppd`, `moge` | Pixel-Perfect Depth |
+| `depthfm` | `depthfm`, `torchdiffeq`, `einops`, `diffusers` | DepthFM |
+| `marigold-dc` | `diffusers>=0.25` | Marigold-DC |
 
 ## Quick Start
 
@@ -60,7 +62,7 @@ meta      = result.metadata         # dict with model info
 ```python
 from depth_estimation import AutoDepthModel, AutoProcessor
 
-# Works with any of the 19 supported variants
+# Works with any of the 21 supported variants
 model     = AutoDepthModel.from_pretrained("zoedepth")
 processor = AutoProcessor.from_pretrained("zoedepth")
 
@@ -135,6 +137,18 @@ for r in results:
 |---|---|
 | `pixel-perfect-depth` | `gangweix/Pixel-Perfect-Depth` + `Ruicheng/moge-2-vitl-normal` |
 
+### DepthFM (Flow Matching)
+
+| Variant ID | Source |
+|---|---|
+| `depth-fm` | `SharpAI/DepthFM` |
+
+### Marigold-DC (Depth Completion)
+
+| Variant ID | Source |
+|---|---|
+| `marigold-dc` | `prs-eth/marigold-depth-v1-0` |
+
 ## Architecture
 
 The library follows the **HuggingFace Transformers** modular design philosophy:
@@ -181,6 +195,8 @@ This library builds upon the incredible work of the following research teams. We
 | **MiDaS** | [github.com/isl-org/MiDaS](https://github.com/isl-org/MiDaS) |
 | **Pixel-Perfect Depth** | [github.com/gangweix/Pixel-Perfect-Depth](https://github.com/gangweix/Pixel-Perfect-Depth) |
 | **MoGe** | [github.com/microsoft/MoGe](https://github.com/microsoft/MoGe) |
+| **DepthFM** | [github.com/CompVis/depth-fm](https://github.com/CompVis/depth-fm) |
+| **Marigold-DC** | [github.com/prs-eth/Marigold-DC](https://github.com/prs-eth/Marigold-DC) |
 
 Thank you to all the researchers and engineers who made their models and code publicly available. 🙏
 

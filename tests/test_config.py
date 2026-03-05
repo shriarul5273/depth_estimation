@@ -194,3 +194,37 @@ class TestPixelPerfectDepthConfig:
     def test_sampling_steps(self):
         config = PixelPerfectDepthConfig(sampling_steps=10)
         assert config.sampling_steps == 10
+
+
+class TestDepthFMConfig:
+    def test_model_type(self):
+        from depth_estimation.models.depth_fm.configuration_depth_fm import DepthFMConfig
+        config = DepthFMConfig()
+        assert config.model_type == "depth-fm"
+
+    def test_from_variant(self):
+        from depth_estimation.models.depth_fm.configuration_depth_fm import DepthFMConfig
+        config = DepthFMConfig.from_variant("depth-fm")
+        assert config.hub_repo_id == "SharpAI/DepthFM"
+
+    def test_num_steps(self):
+        from depth_estimation.models.depth_fm.configuration_depth_fm import DepthFMConfig
+        config = DepthFMConfig(num_steps=4)
+        assert config.num_steps == 4
+
+
+class TestMarigoldDCConfig:
+    def test_model_type(self):
+        from depth_estimation.models.marigold_dc.configuration_marigold_dc import MarigoldDCConfig
+        config = MarigoldDCConfig()
+        assert config.model_type == "marigold-dc"
+
+    def test_from_variant(self):
+        from depth_estimation.models.marigold_dc.configuration_marigold_dc import MarigoldDCConfig
+        config = MarigoldDCConfig.from_variant("marigold-dc")
+        assert config.hub_model_id == "prs-eth/marigold-depth-v1-0"
+
+    def test_inference_steps(self):
+        from depth_estimation.models.marigold_dc.configuration_marigold_dc import MarigoldDCConfig
+        config = MarigoldDCConfig(num_inference_steps=10)
+        assert config.num_inference_steps == 10

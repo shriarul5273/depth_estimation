@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "depth_estimation"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
     { name = "shriarul5273" },
 ]
@@ -35,6 +35,9 @@ dependencies = [
     "opencv-python>=4.8",
     "huggingface-hub>=0.16",
     "transformers>=4.30",
+    "diffusers>=0.25",
+    "einops>=0.6",
+    "torchdiffeq>=0.2",
 ]
 
 [project.urls]
@@ -57,8 +60,17 @@ ppd = [
     "ppd",
     "moge",
 ]
+depthfm = [
+    "depthfm",
+    "torchdiffeq",
+    "einops",
+    "diffusers",
+]
+marigold-dc = [
+    "diffusers>=0.25",
+]
 all = [
-    "depth_estimation[da3,depth-pro,ppd]",
+    "depth_estimation[da3,depth-pro,ppd,depthfm,marigold-dc]",
 ]
 
 [tool.setuptools.packages.find]
