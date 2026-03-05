@@ -2,32 +2,43 @@
 
 A **Transformers-style Python library** for monocular depth estimation.
 
-Provides a unified, modular API for running, comparing, and integrating depth estimation models — starting with the **Depth Anything** family (v1 & v2) and designed to accommodate new model families with minimal friction.
+Provides a unified, modular API for running, comparing, and integrating depth estimation models — supporting **7 model families** with **19 variants** and designed to accommodate new models with minimal friction.
 
 ## Installation
 
 ```bash
-# Clone and install in editable mode
-git clone <repo-url>
+git clone https://github.com/shriarul5273/depth_estimation.git
 cd depth_estimation
 pip install -e .
 
-# With dev dependencies (pytest)
+# With dev dependencies
 pip install -e ".[dev]"
+
+# With all optional model dependencies
+pip install -e ".[all]"
 ```
 
-### Dependencies
+### Core Dependencies
 
 | Package | Min Version |
 |---|---|
 | Python | 3.9 |
 | PyTorch | 2.0 |
 | torchvision | 0.15 |
+| transformers | 4.30 |
 | Pillow | 9.0 |
 | NumPy | 1.24 |
 | matplotlib | 3.6 |
 | opencv-python | 4.8 |
 | huggingface-hub | 0.16 |
+
+### Optional Dependencies
+
+| Group | Package | Models |
+|---|---|---|
+| `da3` | `depth-anything-3` | Depth Anything v3 |
+| `depth-pro` | `depth-pro` | Apple DepthPro |
+| `ppd` | `ppd`, `moge` | Pixel-Perfect Depth |
 
 ## Quick Start
 
@@ -44,17 +55,18 @@ colored   = result.colored_depth    # np.ndarray, uint8, (H, W, 3)
 meta      = result.metadata         # dict with model info
 ```
 
-### Advanced / Component API
+### Auto Classes
 
 ```python
 from depth_estimation import AutoDepthModel, AutoProcessor
 
-model     = AutoDepthModel.from_pretrained("depth-anything-v1-vitl")
-processor = AutoProcessor.from_pretrained("depth-anything-v1-vitl")
+# Works with any of the 19 supported variants
+model     = AutoDepthModel.from_pretrained("zoedepth")
+processor = AutoProcessor.from_pretrained("zoedepth")
 
 inputs = processor("image.jpg")
 with torch.no_grad():
-    depth = model(inputs["pixel_values"].to("cuda"))
+    depth = model(inputs["pixel_values"])
 
 result = processor.postprocess(depth, inputs["original_sizes"])
 ```
@@ -62,7 +74,7 @@ result = processor.postprocess(depth, inputs["original_sizes"])
 ### Batch Inference
 
 ```python
-results = pipe(["img1.jpg", "img2.jpg", "img3.jpg"], batch_size=4)
+results = pipe(["img1.jpg", "img2.jpg", "img3.jpg"])
 for r in results:
     print(r.depth.shape)
 ```
@@ -71,7 +83,7 @@ for r in results:
 
 ### Depth Anything v1
 
-| Variant ID | Backbone | Weights Source |
+| Variant ID | Backbone | Source |
 |---|---|---|
 | `depth-anything-v1-vits` | ViT-S | `LiheYoung/depth-anything-small` |
 | `depth-anything-v1-vitb` | ViT-B | `LiheYoung/depth-anything-base` |
@@ -79,11 +91,49 @@ for r in results:
 
 ### Depth Anything v2
 
-| Variant ID | Backbone | Weights Source |
+| Variant ID | Backbone | Source |
 |---|---|---|
 | `depth-anything-v2-vits` | ViT-S | `depth-anything/Depth-Anything-V2-Small` |
 | `depth-anything-v2-vitb` | ViT-B | `depth-anything/Depth-Anything-V2-Base` |
 | `depth-anything-v2-vitl` | ViT-L | `depth-anything/Depth-Anything-V2-Large` |
+
+### Depth Anything v3
+
+| Variant ID | Source |
+|---|---|
+| `depth-anything-v3-small` | `depth-anything/DA3-SMALL` |
+| `depth-anything-v3-base` | `depth-anything/DA3-BASE` |
+| `depth-anything-v3-large` | `depth-anything/DA3-LARGE` |
+| `depth-anything-v3-giant` | `depth-anything/DA3-GIANT` |
+| `depth-anything-v3-nested-giant-large` | `depth-anything/DA3NESTED-GIANT-LARGE` |
+| `depth-anything-v3-metric-large` | `depth-anything/DA3METRIC-LARGE` |
+| `depth-anything-v3-mono-large` | `depth-anything/DA3MONO-LARGE` |
+
+### ZoeDepth (Metric)
+
+| Variant ID | Source |
+|---|---|
+| `zoedepth` | `Intel/zoedepth-nyu-kitti` |
+
+### MiDaS
+
+| Variant ID | Source |
+|---|---|
+| `midas-dpt-large` | `Intel/dpt-large` |
+| `midas-dpt-hybrid` | `Intel/dpt-hybrid-midas` |
+| `midas-beit-large` | `Intel/dpt-beit-large-512` |
+
+### Apple DepthPro (Metric)
+
+| Variant ID | Source |
+|---|---|
+| `depth-pro` | `apple/DepthPro` |
+
+### Pixel-Perfect Depth (Metric)
+
+| Variant ID | Source |
+|---|---|
+| `pixel-perfect-depth` | `gangweix/Pixel-Perfect-Depth` + `Ruicheng/moge-2-vitl-normal` |
 
 ## Architecture
 
@@ -118,4 +168,4 @@ pytest tests/ -v
 
 ## License
 
-Apache 2.0
+MIT

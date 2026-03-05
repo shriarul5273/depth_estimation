@@ -7,7 +7,7 @@ name = "depth_estimation"
 version = "0.0.2"
 description = "A Transformers-style Python library for monocular depth estimation"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = {text = "MIT"}
 requires-python = ">=3.9"
 dependencies = [
     "torch>=2.0",
