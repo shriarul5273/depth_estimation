@@ -5,10 +5,27 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "depth_estimation"
 version = "0.0.2"
+authors = [
+    { name = "shriarul5273" },
+]
 description = "A Transformers-style Python library for monocular depth estimation"
 readme = "README.md"
-license = {text = "MIT"}
 requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+]
+keywords = ["depth-estimation", "monocular-depth", "computer-vision", "deep-learning", "pytorch"]
 dependencies = [
     "torch>=2.0",
     "torchvision>=0.15",
@@ -19,6 +36,11 @@ dependencies = [
     "huggingface-hub>=0.16",
     "transformers>=4.30",
 ]
+
+[project.urls]
+Homepage = "https://github.com/shriarul5273/depth_estimation"
+Repository = "https://github.com/shriarul5273/depth_estimation"
+Issues = "https://github.com/shriarul5273/depth_estimation/issues"
 
 [project.optional-dependencies]
 dev = [
