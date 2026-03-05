@@ -10,6 +10,26 @@ from depth_estimation.models.depth_anything_v2.configuration_depth_anything_v2 i
     DepthAnythingV2Config,
     _V2_VARIANT_MAP,
 )
+from depth_estimation.models.depth_anything_v3.configuration_depth_anything_v3 import (
+    DepthAnythingV3Config,
+    _DA3_VARIANT_MAP,
+)
+from depth_estimation.models.zoedepth.configuration_zoedepth import (
+    ZoeDepthConfig,
+    _ZOEDEPTH_VARIANT_MAP,
+)
+from depth_estimation.models.midas.configuration_midas import (
+    MiDaSConfig,
+    _MIDAS_VARIANT_MAP,
+)
+from depth_estimation.models.depth_pro.configuration_depth_pro import (
+    DepthProConfig,
+    _DEPTHPRO_VARIANT_MAP,
+)
+from depth_estimation.models.pixel_perfect_depth.configuration_ppd import (
+    PixelPerfectDepthConfig,
+    _PPD_VARIANT_MAP,
+)
 
 
 class TestBaseDepthConfig:
@@ -96,3 +116,81 @@ class TestDepthAnythingV2Config:
     def test_hub_repo_id(self):
         config = DepthAnythingV2Config(backbone="vitb")
         assert "Depth-Anything-V2" in config.hub_repo_id
+
+
+class TestDepthAnythingV3Config:
+    def test_model_type(self):
+        config = DepthAnythingV3Config()
+        assert config.model_type == "depth-anything-v3"
+
+    def test_from_variant(self):
+        for variant_id, backbone in _DA3_VARIANT_MAP.items():
+            config = DepthAnythingV3Config.from_variant(variant_id)
+            assert config.backbone == backbone
+
+    def test_hub_repo_id(self):
+        config = DepthAnythingV3Config(backbone="large")
+        assert "DA3" in config.hub_repo_id
+
+    def test_all_variants_have_repos(self):
+        for variant_id in _DA3_VARIANT_MAP:
+            config = DepthAnythingV3Config.from_variant(variant_id)
+            assert config.hub_repo_id.startswith("depth-anything/")
+
+
+class TestZoeDepthConfig:
+    def test_model_type(self):
+        config = ZoeDepthConfig()
+        assert config.model_type == "zoedepth"
+
+    def test_from_variant(self):
+        for variant_id in _ZOEDEPTH_VARIANT_MAP:
+            config = ZoeDepthConfig.from_variant(variant_id)
+            assert config.hf_model_id == "Intel/zoedepth-nyu-kitti"
+
+    def test_is_metric(self):
+        config = ZoeDepthConfig()
+        assert config.is_metric is True
+
+
+class TestMiDaSConfig:
+    def test_model_type(self):
+        config = MiDaSConfig()
+        assert config.model_type == "midas"
+
+    @pytest.mark.parametrize("variant_id,expected_hf_id", [
+        ("midas-dpt-large", "Intel/dpt-large"),
+        ("midas-dpt-hybrid", "Intel/dpt-hybrid-midas"),
+        ("midas-beit-large", "Intel/dpt-beit-large-512"),
+    ])
+    def test_from_variant(self, variant_id, expected_hf_id):
+        config = MiDaSConfig.from_variant(variant_id)
+        assert config.hf_model_id == expected_hf_id
+
+
+class TestDepthProConfig:
+    def test_model_type(self):
+        config = DepthProConfig()
+        assert config.model_type == "depth-pro"
+
+    def test_from_variant(self):
+        config = DepthProConfig.from_variant("depth-pro")
+        assert config.hub_repo_id == "apple/DepthPro"
+
+    def test_is_metric(self):
+        config = DepthProConfig()
+        assert config.is_metric is True
+
+
+class TestPixelPerfectDepthConfig:
+    def test_model_type(self):
+        config = PixelPerfectDepthConfig()
+        assert config.model_type == "pixel-perfect-depth"
+
+    def test_from_variant(self):
+        config = PixelPerfectDepthConfig.from_variant("pixel-perfect-depth")
+        assert config.ppd_hub_repo_id == "gangweix/Pixel-Perfect-Depth"
+
+    def test_sampling_steps(self):
+        config = PixelPerfectDepthConfig(sampling_steps=10)
+        assert config.sampling_steps == 10

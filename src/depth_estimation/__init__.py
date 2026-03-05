@@ -18,6 +18,11 @@ from .models.auto import AutoDepthModel, AutoProcessor
 # Ensure model modules are imported so they self-register
 from .models import depth_anything_v1  # noqa: F401
 from .models import depth_anything_v2  # noqa: F401
+from .models import depth_anything_v3  # noqa: F401
+from .models import zoedepth  # noqa: F401
+from .models import midas  # noqa: F401
+from .models import depth_pro  # noqa: F401
+from .models import pixel_perfect_depth  # noqa: F401
 
 __all__ = [
     "DepthOutput",
@@ -31,4 +36,4 @@ __all__ = [
     "MODEL_REGISTRY",
 ]
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
