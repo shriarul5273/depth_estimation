@@ -166,6 +166,24 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
+## Acknowledgments
+
+This library builds upon the incredible work of the following research teams. We are deeply grateful for their open-source contributions:
+
+| Model | Repository |
+|---|---|
+| **Depth Anything v1** | [github.com/LiheYoung/Depth-Anything](https://github.com/LiheYoung/Depth-Anything) |
+| **Depth Anything v2** | [github.com/DepthAnything/Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2) |
+| **Depth Anything v3** | [github.com/DepthAnything/Depth-Anything-V3](https://github.com/DepthAnything/Depth-Anything-V3) |
+| **DINOv2** | [github.com/facebookresearch/dinov2](https://github.com/facebookresearch/dinov2) |
+| **DepthPro** | [github.com/apple/ml-depth-pro](https://github.com/apple/ml-depth-pro) |
+| **ZoeDepth** | [github.com/isl-org/ZoeDepth](https://github.com/isl-org/ZoeDepth) |
+| **MiDaS** | [github.com/isl-org/MiDaS](https://github.com/isl-org/MiDaS) |
+| **Pixel-Perfect Depth** | [github.com/gangweix/Pixel-Perfect-Depth](https://github.com/gangweix/Pixel-Perfect-Depth) |
+| **MoGe** | [github.com/microsoft/MoGe](https://github.com/microsoft/MoGe) |
+
+Thank you to all the researchers and engineers who made their models and code publicly available. 🙏
+
 ## License
 
 MIT
