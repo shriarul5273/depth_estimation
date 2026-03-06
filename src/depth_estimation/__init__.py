@@ -23,7 +23,6 @@ from .models import zoedepth  # noqa: F401
 from .models import midas  # noqa: F401
 from .models import depth_pro  # noqa: F401
 from .models import pixel_perfect_depth  # noqa: F401
-from .models import depth_fm  # noqa: F401
 from .models import marigold_dc  # noqa: F401
 
 __all__ = [

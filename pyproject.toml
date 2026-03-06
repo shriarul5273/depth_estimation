@@ -34,10 +34,12 @@ dependencies = [
     "matplotlib>=3.6",
     "opencv-python>=4.8",
     "huggingface-hub>=0.16",
-    "transformers>=4.30",
-    "diffusers>=0.25",
+    "transformers",
+    "diffusers",
+    "accelerate",
+    "timm>=0.9.1",
     "einops>=0.6",
-    "torchdiffeq>=0.2",
+    "addict",
 ]
 
 [project.urls]
@@ -50,27 +52,14 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
-da3 = [
-    "depth-anything-3",
+transformers = [
+    "transformers>=4.30",
 ]
-depth-pro = [
-    "depth-pro",
-]
-ppd = [
-    "ppd",
-    "moge",
-]
-depthfm = [
-    "depthfm",
-    "torchdiffeq",
-    "einops",
-    "diffusers",
-]
-marigold-dc = [
+diffusers = [
     "diffusers>=0.25",
 ]
 all = [
-    "depth_estimation[da3,depth-pro,ppd,depthfm,marigold-dc]",
+    "depth_estimation[transformers,diffusers]",
 ]
 
 [tool.setuptools.packages.find]

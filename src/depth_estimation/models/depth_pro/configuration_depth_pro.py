@@ -14,7 +14,7 @@ class DepthProConfig(BaseDepthConfig):
     """Configuration for Apple DepthPro.
 
     Sharp monocular metric depth in less than a second.
-    Requires ``depth_pro`` package (optional dependency).
+    Uses the bundled network implementation — no external ``depth_pro`` package needed.
     """
 
     model_type = "depth-pro"
@@ -27,6 +27,12 @@ class DepthProConfig(BaseDepthConfig):
         is_metric: bool = True,
         hub_repo_id: str = "apple/DepthPro",
         hub_filename: str = "depth_pro.pt",
+        # Architecture params
+        patch_encoder_preset: str = "dinov2l16_384",
+        image_encoder_preset: str = "dinov2l16_384",
+        fov_encoder_preset: str = "dinov2l16_384",
+        decoder_features: int = 256,
+        use_fov_head: bool = True,
         **kwargs,
     ):
         super().__init__(
@@ -34,10 +40,17 @@ class DepthProConfig(BaseDepthConfig):
             input_size=input_size,
             patch_size=patch_size,
             is_metric=is_metric,
+            mean=[0.5, 0.5, 0.5],
+            std=[0.5, 0.5, 0.5],
             **kwargs,
         )
         self.hub_repo_id = hub_repo_id
         self.hub_filename = hub_filename
+        self.patch_encoder_preset = patch_encoder_preset
+        self.image_encoder_preset = image_encoder_preset
+        self.fov_encoder_preset = fov_encoder_preset
+        self.decoder_features = decoder_features
+        self.use_fov_head = use_fov_head
 
     @classmethod
     def from_variant(cls, variant_id: str) -> "DepthProConfig":

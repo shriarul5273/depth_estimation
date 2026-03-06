@@ -12,7 +12,7 @@ from depth_estimation.models.depth_anything_v2.configuration_depth_anything_v2 i
 )
 from depth_estimation.models.depth_anything_v3.configuration_depth_anything_v3 import (
     DepthAnythingV3Config,
-    _DA3_VARIANT_MAP,
+    _V3_VARIANT_MAP,
 )
 from depth_estimation.models.zoedepth.configuration_zoedepth import (
     ZoeDepthConfig,
@@ -124,7 +124,7 @@ class TestDepthAnythingV3Config:
         assert config.model_type == "depth-anything-v3"
 
     def test_from_variant(self):
-        for variant_id, backbone in _DA3_VARIANT_MAP.items():
+        for variant_id, backbone in _V3_VARIANT_MAP.items():
             config = DepthAnythingV3Config.from_variant(variant_id)
             assert config.backbone == backbone
 
@@ -133,7 +133,7 @@ class TestDepthAnythingV3Config:
         assert "DA3" in config.hub_repo_id
 
     def test_all_variants_have_repos(self):
-        for variant_id in _DA3_VARIANT_MAP:
+        for variant_id in _V3_VARIANT_MAP:
             config = DepthAnythingV3Config.from_variant(variant_id)
             assert config.hub_repo_id.startswith("depth-anything/")
 
@@ -189,28 +189,12 @@ class TestPixelPerfectDepthConfig:
 
     def test_from_variant(self):
         config = PixelPerfectDepthConfig.from_variant("pixel-perfect-depth")
-        assert config.ppd_hub_repo_id == "gangweix/Pixel-Perfect-Depth"
+        assert config.hub_repo_id == "gangweix/Pixel-Perfect-Depth"
 
     def test_sampling_steps(self):
         config = PixelPerfectDepthConfig(sampling_steps=10)
         assert config.sampling_steps == 10
 
-
-class TestDepthFMConfig:
-    def test_model_type(self):
-        from depth_estimation.models.depth_fm.configuration_depth_fm import DepthFMConfig
-        config = DepthFMConfig()
-        assert config.model_type == "depth-fm"
-
-    def test_from_variant(self):
-        from depth_estimation.models.depth_fm.configuration_depth_fm import DepthFMConfig
-        config = DepthFMConfig.from_variant("depth-fm")
-        assert config.hub_repo_id == "SharpAI/DepthFM"
-
-    def test_num_steps(self):
-        from depth_estimation.models.depth_fm.configuration_depth_fm import DepthFMConfig
-        config = DepthFMConfig(num_steps=4)
-        assert config.num_steps == 4
 
 
 class TestMarigoldDCConfig:
