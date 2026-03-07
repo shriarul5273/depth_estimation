@@ -1,57 +1,19 @@
-# 🎉 depth_estimation v0.0.3
+# Release Notes
 
-A Python library for monocular depth estimation — **8 model families, 20 variants**, unified API.
+## 🎉 depth_estimation v0.0.4
 
-## ✨ New Models
+## v0.0.4 — Documentation Restructure
 
-| Model | Variants | Integration |
-|---|---|---|
-| **Marigold-DC** | `marigold-dc` (metric, sparse-guided) | Wrapper over `diffusers` `MarigoldDepthPipeline` |
 
-## 📦 Existing Models (from v0.0.2)
+A patch release focused on documentation structure and install command correctness.
 
-| Model | Variants |
-|---|---|
-| **Depth Anything v1** | `vits`, `vitb`, `vitl` |
-| **Depth Anything v2** | `vits`, `vitb`, `vitl` |
-| **Depth Anything v3** | `small`, `base`, `large`, `giant`, `nested-giant-large`, `metric-large`, `mono-large` |
-| **Intel ZoeDepth** | `zoedepth` |
-| **MiDaS** | `dpt-large`, `dpt-hybrid`, `beit-large` |
-| **Apple DepthPro** | `depth-pro` |
-| **Pixel-Perfect Depth** | `pixel-perfect-depth` |
+## 📚 Documentation Improvements
 
-## 🚀 Usage
+- **New `docs/models.md`** — all supported models and variant IDs moved out of `README.md` into a dedicated reference file
+- **New `docs/dependencies.md`** — dependency tables moved from `README.md` and updated to match `pyproject.toml` exactly (correct version pins, core vs optional split, dev extras)
+- **`README.md` slimmed down** — each section now links to the relevant doc file rather than inlining all tables
 
-```python
-from depth_estimation import AutoDepthModel
+## 🐛 Fixes
 
-# Standard depth estimation
-model = AutoDepthModel.from_pretrained("marigold-dc")
-depth = model(pixel_values)  # (B, H, W) tensor
-
-# Depth completion with sparse guidance
-depth = model.predict_with_guidance(
-    image_pil,
-    sparse_depth_np,        # (H, W) array, zeros where missing
-    num_inference_steps=50,
-    ensemble_size=1,
-    seed=2024,
-)
-```
-
-## 📋 Requirements
-
-```bash
-pip install "depth-estimation[diffusers]"
-# or install diffusers separately
-pip install "diffusers>=0.25"
-```
-
-> **Note:** Marigold-DC requires `diffusers>=0.25`. The model lazy-loads the pipeline on first use and automatically selects `bfloat16` on CUDA.
-
-## 📚 Documentation
-
-| Document | Description |
-|---|---|
-| [models.md](models.md) | Full list of supported models and variant IDs |
-| [dependencies.md](dependencies.md) | Core, optional, and dev dependency reference |
+- Install commands corrected from `pip install depth_estimation` → `pip install depth-estimation` (hyphen, PEP 625)
+- Optional extras syntax corrected: `pip install "depth-estimation[diffusers]"`
