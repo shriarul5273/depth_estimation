@@ -16,7 +16,7 @@ pip install "depth-estimation[dev]"
 pip install "depth-estimation[all]"
 ```
 
-For a full list of core and optional dependencies, see [docs/dependencies.md](docs/dependencies.md).
+For a full list of core and optional dependencies, see [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md).
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ for r in results:
 
 ## Supported Models
 
-8 model families · 20 variants — see [docs/models.md](docs/models.md) for the full list.
+8 model families · 20 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
 
 ## Architecture
 
