@@ -41,10 +41,17 @@ depth = model.predict_with_guidance(
 
 ## 📋 Requirements
 
-```
-pip install depth_estimation[diffusers]
-# or
-pip install diffusers>=0.25
+```bash
+pip install "depth-estimation[diffusers]"
+# or install diffusers separately
+pip install "diffusers>=0.25"
 ```
 
 > **Note:** Marigold-DC requires `diffusers>=0.25`. The model lazy-loads the pipeline on first use and automatically selects `bfloat16` on CUDA.
+
+## 📚 Documentation
+
+| Document | Description |
+|---|---|
+| [models.md](models.md) | Full list of supported models and variant IDs |
+| [dependencies.md](dependencies.md) | Core, optional, and dev dependency reference |
