@@ -5,7 +5,6 @@ AutoProcessor — Automatic processor resolution via the global registry.
 from typing import Any, Optional
 
 from ...registry import MODEL_REGISTRY
-from ...processing_utils import DepthProcessor
 
 
 class AutoProcessor:
@@ -25,7 +24,7 @@ class AutoProcessor:
         )
 
     @staticmethod
-    def from_pretrained(model_id: str, **kwargs: Any) -> DepthProcessor:
+    def from_pretrained(model_id: str, **kwargs: Any):
         """Create a DepthProcessor configured for the given model.
 
         Args:
@@ -46,4 +45,5 @@ class AutoProcessor:
         else:
             config = config_cls()
 
+        from ...processing_utils import DepthProcessor
         return DepthProcessor.from_config(config)

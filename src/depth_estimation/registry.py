@@ -70,7 +70,12 @@ class ModelRegistry:
     def get_model_cls(self, model_id: str) -> Type:
         """Get the model class for a model identifier."""
         model_type = self.resolve_model_type(model_id)
-        return self._models[model_type]
+        cls = self._models[model_type]
+        if not isinstance(cls, type):
+            # It's a factory callable — load and cache the real class
+            cls = cls()
+            self._models[model_type] = cls
+        return cls
 
     def list_model_types(self) -> list:
         """List all registered model type strings."""

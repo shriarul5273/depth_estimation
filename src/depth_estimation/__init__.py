@@ -7,15 +7,13 @@ depth estimation models.
 
 from .output import DepthOutput
 from .configuration_utils import BaseDepthConfig
-from .modeling_utils import BaseDepthModel
-from .processing_utils import DepthProcessor
-from .pipeline_utils import DepthPipeline, pipeline
 from .registry import MODEL_REGISTRY
 
 # Auto classes
 from .models.auto import AutoDepthModel, AutoProcessor
 
-# Ensure model modules are imported so they self-register
+# Ensure model modules are imported so they self-register.
+# These are now torch-free — modeling classes are loaded lazily on first use.
 from .models import depth_anything_v1  # noqa: F401
 from .models import depth_anything_v2  # noqa: F401
 from .models import depth_anything_v3  # noqa: F401
@@ -24,6 +22,28 @@ from .models import midas  # noqa: F401
 from .models import depth_pro  # noqa: F401
 from .models import pixel_perfect_depth  # noqa: F401
 from .models import marigold_dc  # noqa: F401
+
+
+def __getattr__(name):
+    """Defer torch-heavy imports until first use."""
+    if name == "BaseDepthModel":
+        from .modeling_utils import BaseDepthModel
+        globals()["BaseDepthModel"] = BaseDepthModel
+        return BaseDepthModel
+    if name == "DepthProcessor":
+        from .processing_utils import DepthProcessor
+        globals()["DepthProcessor"] = DepthProcessor
+        return DepthProcessor
+    if name == "DepthPipeline":
+        from .pipeline_utils import DepthPipeline
+        globals()["DepthPipeline"] = DepthPipeline
+        return DepthPipeline
+    if name == "pipeline":
+        from .pipeline_utils import pipeline
+        globals()["pipeline"] = pipeline
+        return pipeline
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "DepthOutput",
