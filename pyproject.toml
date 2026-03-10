@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "depth_estimation"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
     { name = "shriarul5273" },
 ]
@@ -61,6 +61,9 @@ diffusers = [
 all = [
     "depth_estimation[transformers,diffusers]",
 ]
+
+[project.scripts]
+depth-estimate = "depth_estimation.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

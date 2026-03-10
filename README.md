@@ -8,17 +8,19 @@ Provides a unified, modular API for running inference, comparing, and integratin
 
 ```bash
 pip install depth-estimation
-
-# With dev dependencies
-pip install "depth-estimation[dev]"
-
-# With all optional model dependencies
-pip install "depth-estimation[all]"
 ```
 
 For a full list of core and optional dependencies, see [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md).
 
 ## Quick Start
+
+| | Pipeline API | Auto Classes |
+|---|---|---|
+| **Setup** | One call, model + processor bundled | Load model and processor separately |
+| **Inference** | Pass image path directly | Call `processor()`, `model()`, `postprocess()` manually |
+| **Control** | Low — handles everything for you | High — you control each step |
+| **Output** | `DepthOutput` with `.depth`, `.colored_depth`, `.metadata` | Raw depth tensor |
+| **Best for** | Quick inference, scripts, demos | Custom pipelines, research, fine-grained control |
 
 ### Pipeline API (Recommended)
 
@@ -82,6 +84,43 @@ Input → Processor.preprocess() → Model.forward() → Processor.postprocess()
 4. Add `__init__.py` with `MODEL_REGISTRY.register(...)`
 
 That's it — `AutoDepthModel`, `AutoProcessor`, and `pipeline()` will automatically resolve your model.
+
+## CLI
+
+After installing the package, a `depth-estimate` command is available.
+
+```bash
+# Single image → saves demo10_depth.png
+depth-estimate predict demo10.png --model depth-anything-v2-vitb
+
+# Batch (directory or glob) → saves to results/
+depth-estimate predict "images/*.jpg" --model depth-anything-v2-vitb --output-dir results/
+
+# Video → saves side-by-side RGB | depth as MP4
+depth-estimate predict video.mp4 --model depth-anything-v2-vitb --output depth_video.mp4
+
+# Save raw float32 array (.npy) alongside the PNG
+depth-estimate predict demo10.png --model depth-anything-v2-vitb --format both
+
+# Change colormap
+depth-estimate predict demo10.png --model depth-anything-v2-vitb --colormap inferno
+
+# List all available models
+depth-estimate list-models
+
+# Show config details for a model
+depth-estimate info depth-anything-v2-vitb
+```
+
+**Global flags** (`--device`, `--quiet`, `--verbose`) go before the subcommand:
+
+```bash
+depth-estimate --device cpu --quiet predict demo10.png --model depth-anything-v2-vitb
+```
+
+All subcommands support `--json` for machine-readable output.
+
+For full documentation see [docs/cli.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/cli.md).
 
 ## Running Tests
 
