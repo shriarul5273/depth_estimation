@@ -2,7 +2,7 @@
 
 A **Python library** for monocular depth estimation.
 
-Provides a unified, modular API for running inference, comparing, and integrating depth estimation models — supporting **8 model families** with **20 variants** and designed to accommodate new models with minimal friction.
+Provides a unified, modular API for running inference, comparing, and integrating depth estimation models — supporting **9 model families** with **25 variants** and designed to accommodate new models with minimal friction.
 
 ## Installation
 
@@ -40,7 +40,7 @@ meta      = result.metadata         # dict with model info
 ```python
 from depth_estimation import AutoDepthModel, AutoProcessor
 
-# Works with any of the 20 supported variants
+# Works with any of the 25 supported variants
 model     = AutoDepthModel.from_pretrained("zoedepth")
 processor = AutoProcessor.from_pretrained("zoedepth")
 
@@ -61,7 +61,7 @@ for r in results:
 
 ## Supported Models
 
-8 model families · 20 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
+9 model families · 25 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
 
 ## Architecture
 

@@ -214,10 +214,15 @@ marigold-dc                           marigold-dc               relative  marigo
 midas-beit-large                      midas                     relative  beit-large
 midas-dpt-hybrid                      midas                     relative  dpt-hybrid
 midas-dpt-large                       midas                     relative  dpt-large
+moge-v1                               moge                      relative  vitl
+moge-v2-vitb-normal                   moge                      metric    vitb
+moge-v2-vitl                          moge                      metric    vitl
+moge-v2-vitl-normal                   moge                      metric    vitl
+moge-v2-vits-normal                   moge                      metric    vits
 pixel-perfect-depth                   pixel-perfect-depth       relative  vitl
 zoedepth                              zoedepth                  metric    zoedepth-nyu-kitti
 
-20 variants across 9 model families.
+25 variants across 9 model families.
 ```
 
 #### Example output (JSON)

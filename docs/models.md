@@ -1,6 +1,6 @@
 # Supported Models
 
-8 model families · 20 variants
+9 model families · 25 variants
 
 ## Depth Anything v1
 
@@ -61,3 +61,13 @@
 | Variant ID | Source |
 |---|---|
 | `marigold-dc` | `prs-eth/marigold-depth-v1-0` |
+
+## MoGe (Metric)
+
+| Variant ID | Backbone | Source |
+|---|---|---|
+| `moge-v1` | ViT-L | `Ruicheng/moge-vitl` |
+| `moge-v2-vitl` | ViT-L | `Ruicheng/moge-2-vitl` |
+| `moge-v2-vitl-normal` | ViT-L | `Ruicheng/moge-2-vitl-normal` |
+| `moge-v2-vitb-normal` | ViT-B | `Ruicheng/moge-2-vitb-normal` |
+| `moge-v2-vits-normal` | ViT-S | `Ruicheng/moge-2-vits-normal` |
