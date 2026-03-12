@@ -74,9 +74,9 @@
 
 ## OmniVGGT (Metric)
 
-| Variant ID | Backbone | Source |
-|---|---|---|
-| `omnivggt` | ViT-L | `Livioni/OmniVGGT` |
+| Variant ID | Backbone | License | Source |
+|---|---|---|---|
+| `omnivggt` | ViT-L | MIT | `Livioni/OmniVGGT` |
 
 ## VGGT (Metric)
 
