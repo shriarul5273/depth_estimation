@@ -1,6 +1,6 @@
 # Supported Models
 
-9 model families · 25 variants
+12 model families · 28 variants
 
 ## Depth Anything v1
 
@@ -71,3 +71,16 @@
 | `moge-v2-vitl-normal` | ViT-L | `Ruicheng/moge-2-vitl-normal` |
 | `moge-v2-vitb-normal` | ViT-B | `Ruicheng/moge-2-vitb-normal` |
 | `moge-v2-vits-normal` | ViT-S | `Ruicheng/moge-2-vits-normal` |
+
+## OmniVGGT (Metric)
+
+| Variant ID | Backbone | Source |
+|---|---|---|
+| `omnivggt` | ViT-L | `Livioni/OmniVGGT` |
+
+## VGGT (Metric)
+
+| Variant ID | Backbone | Source |
+|---|---|---|
+| `vggt` | ViT-L | `facebook/VGGT-1B` |
+| `vggt-commercial` | ViT-L | `facebook/VGGT-1B-Commercial` |

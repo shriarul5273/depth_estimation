@@ -219,10 +219,13 @@ moge-v2-vitb-normal                   moge                      metric    vitb
 moge-v2-vitl                          moge                      metric    vitl
 moge-v2-vitl-normal                   moge                      metric    vitl
 moge-v2-vits-normal                   moge                      metric    vits
+omnivggt                              omnivggt                  metric    vitl
 pixel-perfect-depth                   pixel-perfect-depth       relative  vitl
+vggt                                  vggt                      metric    vitl
+vggt-commercial                       vggt                      metric    vitl
 zoedepth                              zoedepth                  metric    zoedepth-nyu-kitti
 
-25 variants across 9 model families.
+28 variants across 12 model families.
 ```
 
 #### Example output (JSON)

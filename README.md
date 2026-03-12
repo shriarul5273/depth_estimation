@@ -2,7 +2,7 @@
 
 A **Python library** for monocular depth estimation.
 
-Provides a unified, modular API for running inference, comparing, and integrating depth estimation models — supporting **9 model families** with **25 variants** and designed to accommodate new models with minimal friction.
+Provides a unified, modular API for running inference, comparing, and integrating depth estimation models — supporting **12 model families** with **28 variants** and designed to accommodate new models with minimal friction.
 
 ## Installation
 
@@ -61,7 +61,7 @@ for r in results:
 
 ## Supported Models
 
-9 model families · 25 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
+12 model families · 28 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
 
 ## Architecture
 

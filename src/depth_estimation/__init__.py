@@ -23,6 +23,8 @@ from .models import depth_pro  # noqa: F401
 from .models import pixel_perfect_depth  # noqa: F401
 from .models import marigold_dc  # noqa: F401
 from .models import moge  # noqa: F401
+from .models import omnivggt  # noqa: F401
+from .models import vggt  # noqa: F401
 
 
 def __getattr__(name):
