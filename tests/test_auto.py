@@ -8,14 +8,17 @@ from depth_estimation.models.auto.processing_auto import AutoProcessor
 from depth_estimation.processing_utils import DepthProcessor
 
 # Import all models to trigger registration
-import depth_estimation.models.depth_anything_v1  # noqa: F401
-import depth_estimation.models.depth_anything_v2  # noqa: F401
-import depth_estimation.models.depth_anything_v3  # noqa: F401
-import depth_estimation.models.zoedepth  # noqa: F401
-import depth_estimation.models.midas  # noqa: F401
-import depth_estimation.models.depth_pro  # noqa: F401
-import depth_estimation.models.pixel_perfect_depth  # noqa: F401
-import depth_estimation.models.marigold_dc  # noqa: F401
+import depth_estimation.models.depth_anything_v1
+import depth_estimation.models.depth_anything_v2
+import depth_estimation.models.depth_anything_v3
+import depth_estimation.models.zoedepth
+import depth_estimation.models.midas
+import depth_estimation.models.depth_pro
+import depth_estimation.models.pixel_perfect_depth
+import depth_estimation.models.marigold_dc
+import depth_estimation.models.moge
+import depth_estimation.models.vggt
+import depth_estimation.models.omnivggt
 
 
 class TestModelRegistry:
@@ -24,7 +27,7 @@ class TestModelRegistry:
         expected_types = [
             "depth-anything-v1", "depth-anything-v2", "depth-anything-v3",
             "zoedepth", "midas", "depth-pro", "pixel-perfect-depth",
-            "marigold-dc",
+            "marigold-dc", "moge", "vggt", "omnivggt",
         ]
         for t in expected_types:
             assert t in types, f"{t} not registered"
@@ -50,14 +53,21 @@ class TestModelRegistry:
             "pixel-perfect-depth",
             # marigold-dc
             "marigold-dc",
+            # moge (5 variants)
+            "moge-v1", "moge-v2-vitl", "moge-v2-vitl-normal",
+            "moge-v2-vitb-normal", "moge-v2-vits-normal",
+            # vggt (2 variants)
+            "vggt", "vggt-commercial",
+            # omnivggt (1 variant)
+            "omnivggt",
         ]
         for v in expected:
             assert v in variants, f"{v} not registered"
 
     def test_total_variants(self):
-        """Total: 3 + 3 + 7 + 1 + 3 + 1 + 1 + 1 = 20 variants."""
+        """Total: 3 + 3 + 7 + 1 + 3 + 1 + 1 + 1 + 5 + 2 + 1 = 28 variants."""
         variants = MODEL_REGISTRY.list_variants()
-        assert len(variants) >= 20
+        assert len(variants) >= 28
 
     def test_resolve_by_type(self):
         model_type = MODEL_REGISTRY.resolve_model_type("depth-anything-v1")
@@ -92,6 +102,12 @@ class TestAutoDepthModel:
         ("depth-pro", "DepthProModel"),
         ("pixel-perfect-depth", "PixelPerfectDepthModel"),
         ("marigold-dc", "MarigoldDCModel"),
+        ("moge-v1", "MoGeModel"),
+        ("moge-v2-vitl", "MoGeModel"),
+        ("moge-v2-vits-normal", "MoGeModel"),
+        ("vggt", "VGGTModel"),
+        ("vggt-commercial", "VGGTModel"),
+        ("omnivggt", "OmniVGGTModel"),
     ])
     def test_resolves_correct_class(self, variant_id, expected_class):
         model_cls = MODEL_REGISTRY.get_model_cls(variant_id)
@@ -112,6 +128,9 @@ class TestAutoProcessor:
         "depth-pro",
         "pixel-perfect-depth",
         "marigold-dc",
+        "moge-v1", "moge-v2-vitl", "moge-v2-vits-normal",
+        "vggt", "vggt-commercial",
+        "omnivggt",
     ])
     def test_returns_processor(self, variant_id):
         """AutoProcessor should return a DepthProcessor for all variants."""

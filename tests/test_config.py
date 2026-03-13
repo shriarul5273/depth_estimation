@@ -30,6 +30,18 @@ from depth_estimation.models.pixel_perfect_depth.configuration_ppd import (
     PixelPerfectDepthConfig,
     _PPD_VARIANT_MAP,
 )
+from depth_estimation.models.moge.configuration_moge import (
+    MoGeConfig,
+    _MOGE_VARIANT_MAP,
+)
+from depth_estimation.models.vggt.configuration_vggt import (
+    VGGTConfig,
+    _VGGT_VARIANT_MAP,
+)
+from depth_estimation.models.omnivggt.configuration_omnivggt import (
+    OmniVGGTConfig,
+    _OMNIVGGT_VARIANT_MAP,
+)
 
 
 class TestBaseDepthConfig:
@@ -195,6 +207,94 @@ class TestPixelPerfectDepthConfig:
         config = PixelPerfectDepthConfig(sampling_steps=10)
         assert config.sampling_steps == 10
 
+
+
+class TestMoGeConfig:
+    def test_model_type(self):
+        config = MoGeConfig()
+        assert config.model_type == "moge"
+
+    def test_from_variant(self):
+        for variant_id in _MOGE_VARIANT_MAP:
+            config = MoGeConfig.from_variant(variant_id)
+            assert config.hub_repo_id == _MOGE_VARIANT_MAP[variant_id]["hub_repo_id"]
+
+    def test_from_variant_invalid(self):
+        with pytest.raises(ValueError):
+            MoGeConfig.from_variant("nonexistent-moge")
+
+    @pytest.mark.parametrize("variant_id,expected_metric", [
+        ("moge-v1", False),
+        ("moge-v2-vitl", True),
+        ("moge-v2-vits-normal", True),
+    ])
+    def test_is_metric(self, variant_id, expected_metric):
+        config = MoGeConfig.from_variant(variant_id)
+        assert config.is_metric is expected_metric
+
+    @pytest.mark.parametrize("variant_id,expected_backbone", [
+        ("moge-v1", "vitl"),
+        ("moge-v2-vitb-normal", "vitb"),
+        ("moge-v2-vits-normal", "vits"),
+    ])
+    def test_backbone(self, variant_id, expected_backbone):
+        config = MoGeConfig.from_variant(variant_id)
+        assert config.backbone == expected_backbone
+
+    def test_hub_repo_id(self):
+        config = MoGeConfig.from_variant("moge-v2-vitl")
+        assert "Ruicheng" in config.hub_repo_id
+
+
+class TestVGGTConfig:
+    def test_model_type(self):
+        config = VGGTConfig()
+        assert config.model_type == "vggt"
+
+    def test_from_variant(self):
+        for variant_id in _VGGT_VARIANT_MAP:
+            config = VGGTConfig.from_variant(variant_id)
+            assert config.hub_repo_id == _VGGT_VARIANT_MAP[variant_id]["hub_repo_id"]
+
+    def test_from_variant_invalid(self):
+        with pytest.raises(ValueError):
+            VGGTConfig.from_variant("nonexistent-vggt")
+
+    def test_is_metric(self):
+        for variant_id in _VGGT_VARIANT_MAP:
+            config = VGGTConfig.from_variant(variant_id)
+            assert config.is_metric is True
+
+    def test_hub_repo_ids(self):
+        assert VGGTConfig.from_variant("vggt").hub_repo_id == "facebook/VGGT-1B"
+        assert VGGTConfig.from_variant("vggt-commercial").hub_repo_id == "facebook/VGGT-1B-Commercial"
+
+    def test_backbone(self):
+        config = VGGTConfig.from_variant("vggt")
+        assert config.backbone == "vitl"
+
+
+class TestOmniVGGTConfig:
+    def test_model_type(self):
+        config = OmniVGGTConfig()
+        assert config.model_type == "omnivggt"
+
+    def test_from_variant(self):
+        config = OmniVGGTConfig.from_variant("omnivggt")
+        assert config.hub_repo_id == "Livioni/OmniVGGT"
+
+    def test_from_variant_invalid(self):
+        with pytest.raises(ValueError):
+            OmniVGGTConfig.from_variant("nonexistent-omnivggt")
+
+    def test_is_metric(self):
+        config = OmniVGGTConfig.from_variant("omnivggt")
+        assert config.is_metric is True
+
+    def test_all_variants_have_repos(self):
+        for variant_id in _OMNIVGGT_VARIANT_MAP:
+            config = OmniVGGTConfig.from_variant(variant_id)
+            assert config.hub_repo_id
 
 
 class TestMarigoldDCConfig:

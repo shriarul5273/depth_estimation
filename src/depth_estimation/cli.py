@@ -2,7 +2,7 @@
 Command-line interface for depth_estimation.
 
 Entry point: depth-estimate
-Subcommands: predict, list-models, info, benchmark
+Subcommands: predict, list-models, info, evaluate
 """
 
 import argparse
@@ -216,7 +216,7 @@ def _run_predict_video(
 def _run_list_models(args: argparse.Namespace) -> None:
     # Import triggers all model self-registrations
     from depth_estimation import MODEL_REGISTRY
-    import depth_estimation  # noqa: F401
+    import depth_estimation
 
     variants = MODEL_REGISTRY.list_variants()
 
@@ -258,7 +258,7 @@ def _run_list_models(args: argparse.Namespace) -> None:
 
 def _run_info(args: argparse.Namespace) -> None:
     from depth_estimation import MODEL_REGISTRY
-    import depth_estimation  # noqa: F401
+    import depth_estimation
 
     model_id = args.model_id
 
@@ -303,13 +303,134 @@ def _run_info(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
-# benchmark (stub)
+# evaluate
 # ---------------------------------------------------------------------------
 
-def _run_benchmark(args: argparse.Namespace) -> None:
-    print("benchmark: not yet implemented (depends on the evaluation suite).")
-    print("Coming in v0.1.1.")
-    sys.exit(0)
+_COMPARE_MODELS = [
+    "depth-anything-v2-vits",
+    "depth-anything-v2-vitb",
+    "depth-anything-v2-vitl",
+    "zoedepth",
+    "depth-pro",
+    "midas-dpt-large",
+]
+
+_DATASET_CHOICES = ["nyu_depth_v2", "nyu", "kitti_eigen", "kitti", "diode"]
+
+
+def _run_evaluate(args: argparse.Namespace) -> None:
+    import time
+
+    from depth_estimation.evaluation import compare, evaluate
+
+    dataset = args.dataset
+    model_id = args.model
+    align = not args.no_align
+
+    # Extra kwargs forwarded to load_dataset
+    dataset_kwargs: dict = {}
+    if args.scene_type != "all":
+        dataset_kwargs["scene_type"] = args.scene_type
+    if args.max_depth is not None:
+        dataset_kwargs["max_depth"] = args.max_depth
+
+    # ── Compare mode ──────────────────────────────────────────────────────────
+    if args.compare:
+        models = args.compare_models or _COMPARE_MODELS
+        if not args.quiet:
+            print(f"\nComparing {len(models)} models on {dataset} ({args.split})")
+            if dataset_kwargs:
+                print(f"  Options: {dataset_kwargs}")
+            print()
+
+        t0 = time.time()
+        results = compare(
+            models=models,
+            dataset=dataset,
+            split=args.split,
+            dataset_root=args.dataset_root,
+            batch_size=args.batch_size,
+            device=args.device,
+            num_workers=args.num_workers,
+            align=align,
+            num_samples=args.num_samples,
+            print_table=True,
+            **dataset_kwargs,
+        )
+        elapsed = time.time() - t0
+
+        if not args.quiet:
+            print(f"\nTotal wall time: {elapsed:.1f}s")
+
+        if args.output:
+            _save_json(results, args.output)
+        return
+
+    # ── Single model ──────────────────────────────────────────────────────────
+    if not args.quiet:
+        print(f"\nEvaluating {model_id} on {dataset} ({args.split})")
+        if args.num_samples:
+            print(f"  Samples: {args.num_samples}")
+        if dataset_kwargs:
+            print(f"  Options: {dataset_kwargs}")
+        print()
+
+    t0 = time.time()
+    results = evaluate(
+        model=model_id,
+        dataset=dataset,
+        split=args.split,
+        dataset_root=args.dataset_root,
+        batch_size=args.batch_size,
+        device=args.device,
+        num_workers=args.num_workers,
+        align=align,
+        num_samples=args.num_samples,
+        **dataset_kwargs,
+    )
+    elapsed = time.time() - t0
+
+    if args.json:
+        results["model_id"] = model_id
+        results["dataset"] = dataset
+        results["elapsed_s"] = round(elapsed, 2)
+        print(json.dumps(results, indent=2))
+        return
+
+    # Pretty print
+    print(f"{'─' * 55}")
+    print(f"  Results: {model_id}  [{dataset} / {args.split}]")
+    print(f"{'─' * 55}")
+    print(f"  {'Metric':<14}  {'Value':>10}  Direction")
+    print(f"  {'──────':<14}  {'─────':>10}  ─────────")
+    for metric, direction in [
+        ("abs_rel",  "lower ↓"),
+        ("sq_rel",   "lower ↓"),
+        ("rmse",     "lower ↓"),
+        ("rmse_log", "lower ↓"),
+        ("delta1",   "higher ↑"),
+        ("delta2",   "higher ↑"),
+        ("delta3",   "higher ↑"),
+    ]:
+        print(f"  {metric:<14}  {results[metric]:>10.4f}  {direction}")
+    print(f"{'─' * 55}")
+    print(f"  Samples : {results.get('n_samples', '?')}")
+    print(f"  Time    : {elapsed:.1f}s")
+    print(f"{'─' * 55}\n")
+
+    if args.output:
+        results["model_id"] = model_id
+        results["dataset"] = dataset
+        results["elapsed_s"] = round(elapsed, 2)
+        _save_json(results, args.output)
+
+
+def _save_json(data: dict, path: str) -> None:
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"Results saved to {out}")
 
 
 # ---------------------------------------------------------------------------
@@ -357,8 +478,97 @@ def _build_parser() -> argparse.ArgumentParser:
     p_info.add_argument("model_id", help="Model variant ID (e.g. depth-anything-v2-vitb).")
     p_info.add_argument("--json", action="store_true", help="Output as JSON.")
 
-    # ---- benchmark ----
-    sub.add_parser("benchmark", help="(Coming soon) Evaluate a model on a standard dataset.")
+    # ---- evaluate ----
+    p_eval = sub.add_parser(
+        "evaluate",
+        help="Evaluate a model on a standard depth benchmark.",
+    )
+    p_eval.add_argument(
+        "--model", "-m",
+        default="depth-anything-v2-vitb",
+        help="Model variant ID (default: depth-anything-v2-vitb). Ignored with --compare.",
+    )
+    p_eval.add_argument(
+        "--dataset", "-d",
+        required=True,
+        choices=_DATASET_CHOICES,
+        metavar="DATASET",
+        help=f"Dataset name: {', '.join(_DATASET_CHOICES)}.",
+    )
+    p_eval.add_argument(
+        "--split",
+        default="test",
+        choices=["train", "val", "test"],
+        help="Dataset split (default: test).",
+    )
+    p_eval.add_argument(
+        "--dataset-root",
+        default=None,
+        metavar="DIR",
+        help="Local dataset root. Auto-downloads to ~/.cache/... if not provided.",
+    )
+    p_eval.add_argument(
+        "--compare",
+        action="store_true",
+        help="Evaluate a preset list of models and print a comparison table.",
+    )
+    p_eval.add_argument(
+        "--compare-models",
+        nargs="+",
+        default=None,
+        metavar="MODEL",
+        help="Models to compare (overrides the built-in preset). Used with --compare.",
+    )
+    p_eval.add_argument(
+        "--num-samples",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Limit evaluation to N samples (quick check).",
+    )
+    p_eval.add_argument(
+        "--batch-size",
+        type=int,
+        default=1,
+        metavar="B",
+        help="Images per forward pass (default: 1).",
+    )
+    p_eval.add_argument(
+        "--num-workers",
+        type=int,
+        default=4,
+        metavar="W",
+        help="DataLoader worker processes (default: 4).",
+    )
+    p_eval.add_argument(
+        "--no-align",
+        action="store_true",
+        help="Disable per-sample least-squares alignment for relative models.",
+    )
+    p_eval.add_argument(
+        "--scene-type",
+        default="all",
+        choices=["indoors", "outdoors", "all"],
+        help="DIODE scene subset (default: all).",
+    )
+    p_eval.add_argument(
+        "--max-depth",
+        type=float,
+        default=None,
+        metavar="M",
+        help="Maximum valid depth in metres.",
+    )
+    p_eval.add_argument(
+        "--output", "-o",
+        default=None,
+        metavar="FILE",
+        help="Save results to a JSON file.",
+    )
+    p_eval.add_argument(
+        "--json",
+        action="store_true",
+        help="Print results as JSON instead of a table.",
+    )
 
     return parser
 
@@ -379,7 +589,7 @@ def main() -> None:
         "predict": _run_predict,
         "list-models": _run_list_models,
         "info": _run_info,
-        "benchmark": _run_benchmark,
+        "evaluate": _run_evaluate,
     }
 
     dispatch[args.subcommand](args)

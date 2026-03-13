@@ -1,6 +1,6 @@
 # Command-Line Interface
 
-The `depth-estimate` command gives you access to the full depth estimation library directly from the terminal — no Python code required. It is a thin wrapper over the [Pipeline API](pipeline.md) and requires no extra dependencies beyond the core package.
+The `depth-estimate` command gives you access to the full depth estimation library directly from the terminal — no Python code required. It wraps the [Pipeline API](pipeline.md) for inference and the [Evaluation API](evaluation.md) for benchmarking.
 
 ## Installation
 
@@ -107,23 +107,23 @@ Any [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_r
 #### Single image
 
 ```bash
-# Default output: demo10_depth.png in the same directory as the input
-depth-estimate predict demo10.png --model depth-anything-v2-vitb
+# Default output: demo_depth.png in the same directory as the input
+depth-estimate predict examples/demo.png --model depth-anything-v2-vitb
 
 # Explicit output path
-depth-estimate predict demo10.png --model depth-anything-v2-vitb --output results/depth.png
+depth-estimate predict examples/demo.png --model depth-anything-v2-vitb --output results/depth.png
 
 # Save both colourised PNG and raw float32 NPY
-depth-estimate predict demo10.png --model depth-anything-v2-vitb --format both
+depth-estimate predict examples/demo.png --model depth-anything-v2-vitb --format both
 
 # Different colormap
-depth-estimate predict demo10.png --model depth-anything-v2-vitb --colormap inferno
+depth-estimate predict examples/demo.png --model depth-anything-v2-vitb --colormap inferno
 
 # Metric depth model — NPY values will be in metres
-depth-estimate predict demo10.png --model zoedepth --format both
+depth-estimate predict examples/demo.png --model zoedepth --format both
 
 # Run on CPU explicitly
-depth-estimate --device cpu predict demo10.png --model depth-anything-v2-vits
+depth-estimate --device cpu predict examples/demo.png --model depth-anything-v2-vits
 ```
 
 #### Batch (directory)
@@ -321,14 +321,96 @@ depth-estimate info depth-anything-v2-vitb --json
 
 ---
 
-### `benchmark`
+### `evaluate`
 
-Evaluate a model on a standard dataset. **Coming in v0.1.1** — requires the evaluation suite.
+Evaluate a model on a standard depth benchmark. Relative-depth models are aligned per-sample (least-squares scale + shift) before metric computation — detected automatically from `config.is_metric`.
+
+```
+depth-estimate evaluate --dataset DATASET [OPTIONS]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--model` / `-m` | `depth-anything-v2-vitb` | Model variant ID. Ignored with `--compare`. |
+| `--dataset` / `-d` | **required** | `nyu_depth_v2` (alias `nyu`), `kitti_eigen` (alias `kitti`), or `diode`. |
+| `--split` | `test` | Dataset split: `train`, `val`, or `test`. |
+| `--dataset-root` | auto | Local root directory. Auto-downloads where supported. |
+| `--compare` | off | Evaluate a preset list of models and print a comparison table. |
+| `--compare-models` | preset | Space-separated model IDs to compare. Overrides the built-in preset. |
+| `--num-samples N` | all | Limit to N samples for quick checks. |
+| `--batch-size B` | `1` | Images per forward pass. |
+| `--num-workers W` | `4` | DataLoader workers. Use `0` on Windows with h5py. |
+| `--no-align` | off | Disable alignment for relative models. |
+| `--scene-type` | `all` | DIODE only: `indoors`, `outdoors`, or `all`. |
+| `--max-depth M` | dataset default | Maximum valid depth in metres. |
+| `--output` / `-o` | none | Save results to a JSON file. |
+| `--json` | off | Print results as JSON instead of a table. |
+
+#### Examples
 
 ```bash
-depth-estimate benchmark
-# Coming in v0.1.1.
+# NYU Depth V2 — auto-downloads ~2.8 GB on first run
+depth-estimate evaluate --model depth-anything-v2-vitb --dataset nyu_depth_v2
+
+# Quick 50-sample check
+depth-estimate evaluate --model depth-pro --dataset nyu --num-samples 50
+
+# KITTI Eigen — manual download required
+depth-estimate evaluate --model zoedepth --dataset kitti_eigen --dataset-root /data/kitti
+
+# DIODE indoors subset
+depth-estimate evaluate --model depth-anything-v2-vitl --dataset diode --scene-type indoors
+
+# Compare preset models, save to JSON
+depth-estimate evaluate --compare --dataset nyu_depth_v2 --output results/compare_nyu.json
+
+# Compare custom model list
+depth-estimate evaluate --compare --dataset nyu_depth_v2 \
+    --compare-models depth-anything-v2-vits depth-anything-v2-vitb depth-pro
+
+# Machine-readable output
+depth-estimate evaluate --model depth-pro --dataset nyu --json
+
+# Disable auto-alignment (metric model, no alignment needed)
+depth-estimate evaluate --model zoedepth --dataset kitti --dataset-root /data/kitti --no-align
 ```
+
+#### Example output (single model)
+
+```
+───────────────────────────────────────────────────────
+  Results: depth-anything-v2-vitb  [nyu_depth_v2 / test]
+───────────────────────────────────────────────────────
+  Metric          Value  Direction
+  ──────          ─────  ─────────
+  abs_rel        0.0431  lower ↓
+  sq_rel         0.0124  lower ↓
+  rmse           0.3121  lower ↓
+  rmse_log       0.0612  lower ↓
+  delta1         0.9824  higher ↑
+  delta2         0.9971  higher ↑
+  delta3         0.9993  higher ↑
+───────────────────────────────────────────────────────
+  Samples : 654
+  Time    : 142.3s
+───────────────────────────────────────────────────────
+```
+
+#### Example output (`--compare`)
+
+```
+-----------------------------------------------------------------
+Model                        abs_rel   sq_rel     rmse  rmse_log   delta1   delta2   delta3
+                                 (↓)      (↓)      (↓)       (↓)      (↑)      (↑)      (↑)
+-----------------------------------------------------------------
+depth-anything-v2-vits      0.0512*  0.0143*  0.3541*   0.0712*  0.9723*  0.9961*  0.9992*  n=654
+depth-anything-v2-vitb      0.0431   0.0124   0.3121    0.0612   0.9824   0.9971   0.9993   n=654
+depth-anything-v2-vitl      0.0378   0.0101   0.2874    0.0571   0.9891   0.9981   0.9996   n=654
+-----------------------------------------------------------------
+* = best in column
+```
+
+> **Datasets requiring download:** NYU Depth V2 (~2.8 GB) and DIODE (~2.6 GB) auto-download on first use and are cached in `~/.cache/depth_estimation/`. KITTI requires registration — pass `--dataset-root` pointing to your local copy.
 
 ---
 

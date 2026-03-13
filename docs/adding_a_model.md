@@ -87,7 +87,7 @@ MODEL_REGISTRY.register(
 Add one line to `src/depth_estimation/__init__.py`:
 
 ```python
-from .models import your_model  # noqa: F401
+from .models import your_model
 ```
 
 ## Done!

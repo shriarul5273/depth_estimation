@@ -14,17 +14,23 @@ from .models.auto import AutoDepthModel, AutoProcessor
 
 # Ensure model modules are imported so they self-register.
 # These are now torch-free — modeling classes are loaded lazily on first use.
-from .models import depth_anything_v1  # noqa: F401
-from .models import depth_anything_v2  # noqa: F401
-from .models import depth_anything_v3  # noqa: F401
-from .models import zoedepth  # noqa: F401
-from .models import midas  # noqa: F401
-from .models import depth_pro  # noqa: F401
-from .models import pixel_perfect_depth  # noqa: F401
-from .models import marigold_dc  # noqa: F401
-from .models import moge  # noqa: F401
-from .models import omnivggt  # noqa: F401
-from .models import vggt  # noqa: F401
+from .models import depth_anything_v1
+from .models import depth_anything_v2
+from .models import depth_anything_v3
+from .models import zoedepth
+from .models import midas
+from .models import depth_pro
+from .models import pixel_perfect_depth
+from .models import marigold_dc
+from .models import moge
+from .models import omnivggt
+from .models import vggt
+
+
+def load_dataset(name, split="train", root=None, download=True, transform=None, **kwargs):
+    """Load a depth dataset by name. See :mod:`depth_estimation.data` for details."""
+    from .data import load_dataset as _load
+    return _load(name, split=split, root=root, download=download, transform=transform, **kwargs)
 
 
 def __getattr__(name):
@@ -58,6 +64,7 @@ __all__ = [
     "AutoDepthModel",
     "AutoProcessor",
     "MODEL_REGISTRY",
+    "load_dataset",
 ]
 
 __version__ = "0.0.7"
