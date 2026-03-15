@@ -46,6 +46,8 @@ from .folder import FolderDataset
 from .nyu_depth_v2 import NYUDepthV2Dataset
 from .kitti import KITTIEigenDataset
 from .diode import DIODEDataset
+from . import transforms
+from .transforms import get_train_transforms, get_val_transforms, Compose, PairedResize
 
 __all__ = [
     "load_dataset",
@@ -54,6 +56,11 @@ __all__ = [
     "KITTIEigenDataset",
     "DIODEDataset",
     "FolderDataset",
+    "transforms",
+    "get_train_transforms",
+    "get_val_transforms",
+    "Compose",
+    "PairedResize",
 ]
 
 _REGISTRY = {

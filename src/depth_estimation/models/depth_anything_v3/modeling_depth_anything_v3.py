@@ -1759,6 +1759,10 @@ class DepthAnythingV3Model(BaseDepthModel):
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
         return self.net(pixel_values)
 
+    def _backbone_module(self):
+        """Return the DinoV2 backbone (_DepthAnythingV3Net.backbone)."""
+        return self.net.backbone
+
     @classmethod
     def _load_pretrained_weights(
         cls,

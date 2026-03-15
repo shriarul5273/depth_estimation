@@ -73,56 +73,24 @@ Returns a single `DepthOutput` for a single image, or a `list[DepthOutput]` for 
 
 ## Examples
 
-### Single image
-
 ```python
 from depth_estimation import pipeline
 
 pipe = pipeline("depth-estimation", model="depth-anything-v2-vitb")
+
+# Single image — accepts path, PIL.Image, or np.ndarray
 result = pipe("photo.jpg")
+print(result.depth.shape)          # (720, 1280)
 
-print(result.depth.shape)      # (720, 1280)
-print(result.metadata)
-```
+# Batch
+results = pipe(["img1.jpg", "img2.jpg"], batch_size=2)
 
-### Batch inference
-
-```python
-results = pipe(["img1.jpg", "img2.jpg", "img3.jpg"], batch_size=2)
-for r in results:
-    print(r.depth.shape, r.metadata["latency_seconds"])
-```
-
-### Custom colormap
-
-```python
+# Custom colormap / disable colorization
 result = pipe("photo.jpg", colormap="inferno")
-```
+result = pipe("photo.jpg", colorize=False)   # colored_depth is None
 
-### Disable colorization
-
-```python
-result = pipe("photo.jpg", colorize=False)
-# result.colored_depth is None
-```
-
-### Explicit device
-
-```python
+# Explicit device
 pipe = pipeline("depth-estimation", model="depth-pro", device="cuda:0")
-```
-
-### PIL image or NumPy array input
-
-```python
-from PIL import Image
-import numpy as np
-
-img_pil = Image.open("photo.jpg")
-result = pipe(img_pil)
-
-img_np = np.array(img_pil)
-result = pipe(img_np)
 ```
 
 ## Internal Flow

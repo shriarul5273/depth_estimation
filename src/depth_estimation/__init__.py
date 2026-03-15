@@ -51,6 +51,39 @@ def __getattr__(name):
         from .pipeline_utils import pipeline
         globals()["pipeline"] = pipeline
         return pipeline
+    # Training symbols
+    if name == "DepthTrainer":
+        from .trainer import DepthTrainer
+        globals()["DepthTrainer"] = DepthTrainer
+        return DepthTrainer
+    if name == "DepthTrainingArguments":
+        from .training_args import DepthTrainingArguments
+        globals()["DepthTrainingArguments"] = DepthTrainingArguments
+        return DepthTrainingArguments
+    if name == "CombinedDepthLoss":
+        from .losses import CombinedDepthLoss
+        globals()["CombinedDepthLoss"] = CombinedDepthLoss
+        return CombinedDepthLoss
+    if name == "ScaleInvariantLoss":
+        from .losses import ScaleInvariantLoss
+        globals()["ScaleInvariantLoss"] = ScaleInvariantLoss
+        return ScaleInvariantLoss
+    if name == "GradientLoss":
+        from .losses import GradientLoss
+        globals()["GradientLoss"] = GradientLoss
+        return GradientLoss
+    if name == "BerHuLoss":
+        from .losses import BerHuLoss
+        globals()["BerHuLoss"] = BerHuLoss
+        return BerHuLoss
+    if name == "get_train_transforms":
+        from .data.transforms import get_train_transforms
+        globals()["get_train_transforms"] = get_train_transforms
+        return get_train_transforms
+    if name == "get_val_transforms":
+        from .data.transforms import get_val_transforms
+        globals()["get_val_transforms"] = get_val_transforms
+        return get_val_transforms
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -65,6 +98,15 @@ __all__ = [
     "AutoProcessor",
     "MODEL_REGISTRY",
     "load_dataset",
+    # Training
+    "DepthTrainer",
+    "DepthTrainingArguments",
+    "CombinedDepthLoss",
+    "ScaleInvariantLoss",
+    "GradientLoss",
+    "BerHuLoss",
+    "get_train_transforms",
+    "get_val_transforms",
 ]
 
-__version__ = "0.0.7"
+__version__ = "0.0.9"

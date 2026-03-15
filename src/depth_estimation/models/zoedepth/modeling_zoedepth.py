@@ -38,6 +38,13 @@ class ZoeDepthModel(BaseDepthModel):
         self._hf_model = None
         self._hf_processor = None
 
+    def _backbone_module(self):
+        raise NotImplementedError(
+            "ZoeDepthModel wraps a HuggingFace transformers pipeline and does not "
+            "expose trainable nn.Module parameters directly. For fine-tuning, "
+            "access the underlying model via the transformers API."
+        )
+
     def _ensure_pipeline(self):
         """Lazy-load the HF pipeline."""
         if self._pipeline is not None:

@@ -54,6 +54,13 @@ class MarigoldDCModel(BaseDepthModel):
         super().__init__(config)
         self._pipe = None
 
+    def _backbone_module(self):
+        raise NotImplementedError(
+            "MarigoldDCModel wraps a diffusers MarigoldDepthPipeline and does not "
+            "expose trainable nn.Module parameters directly. For fine-tuning, "
+            "access the pipeline components (e.g. self._pipe.unet) directly."
+        )
+
     def _ensure_pipe(self):
         """Lazy-load the Marigold pipeline."""
         if self._pipe is not None:

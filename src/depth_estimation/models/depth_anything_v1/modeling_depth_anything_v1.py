@@ -308,6 +308,10 @@ class DepthAnythingV1Model(BaseDepthModel):
         """
         return self.net(pixel_values)
 
+    def _backbone_module(self):
+        """Return the DINOv2 backbone (DPT_DINOv2.pretrained)."""
+        return self.net.pretrained
+
     @classmethod
     def _load_pretrained_weights(
         cls,

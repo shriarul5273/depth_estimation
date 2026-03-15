@@ -788,6 +788,36 @@ class DepthProModel(BaseDepthModel):
             depths.append(result["depth"])
         return torch.stack(depths)
 
+    def _backbone_module(self):
+        """Return the DepthPro encoder (_DepthProNet.encoder).
+
+        Calls _ensure_net() to lazily initialise the network if needed.
+        The encoder is a DepthProEncoder with patch_encoder and image_encoder.
+        """
+        self._ensure_net()
+        return self._net.encoder
+
+    def unfreeze_top_k_backbone_layers(self, k: int) -> None:
+        """Unfreeze the last k blocks of both ViT encoders in DepthProEncoder.
+
+        Overrides the DINOv2-specific base implementation.
+        DepthProEncoder has two timm ViT models: patch_encoder and image_encoder.
+
+        Args:
+            k: Number of blocks to unfreeze from the top of each ViT encoder.
+        """
+        self._ensure_net()
+        enc = self._net.encoder
+        for vit in (enc.patch_encoder, enc.image_encoder):
+            if hasattr(vit, "blocks"):
+                for block in list(vit.blocks)[-k:]:
+                    for param in block.parameters():
+                        param.requires_grad = True
+        logger.info(
+            f"Unfroze top {k} DepthPro encoder blocks. "
+            f"Trainable params: {self._count_trainable():,}"
+        )
+
     @classmethod
     def _load_pretrained_weights(
         cls,

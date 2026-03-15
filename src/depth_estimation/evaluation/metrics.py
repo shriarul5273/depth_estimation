@@ -1,6 +1,25 @@
 """Standard depth estimation metrics and per-dataset accumulator.
 
-All metrics follow Eigen et al. (2014) and are widely used in the literature.
+All seven metrics follow the protocol established by Eigen et al. (NeurIPS
+2014) [1] and further standardised in Eigen & Fergus (ICCV 2015) [2].  They
+are used in virtually every monocular depth estimation paper.
+
+References
+----------
+[1] Eigen, D., Puhrsch, C., & Fergus, R. (2014).
+    Depth Map Prediction from a Single Image using a Multi-Scale Deep Network.
+    NeurIPS 2014. https://arxiv.org/abs/1406.2283
+
+[2] Eigen, D., & Fergus, R. (2015).
+    Predicting Depth, Surface Normals and Semantic Labels with a Common
+    Multi-Scale Convolutional Architecture.
+    ICCV 2015. https://arxiv.org/abs/1411.4734
+
+[3] Ranftl, R., Lasinger, K., Hafner, D., Schindler, K., & Koltun, V. (2022).
+    Towards Robust Monocular Depth Estimation: Mixing Datasets for Zero-Shot
+    Cross-Dataset Transfer. IEEE TPAMI.
+    https://arxiv.org/abs/1907.01341
+    (establishes least-squares scale-and-shift alignment for relative models)
 
 Per-sample computation
 ----------------------
@@ -81,8 +100,9 @@ def align_least_squares(
 class DepthMetrics:
     """Compute all 7 standard depth estimation metrics for one prediction.
 
-    Metrics
-    -------
+    Metrics follow Eigen et al., NeurIPS 2014 [1] and Eigen & Fergus,
+    ICCV 2015 [2].
+
     =========  ==============================  ==========  ==============
     Name       Formula (over valid pixels)     Range       Direction
     =========  ==============================  ==========  ==============

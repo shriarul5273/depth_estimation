@@ -19,6 +19,8 @@ env/
 .coverage
 htmlcov/
 test_files/
+examples/demo_results/
+examples/checkpoints/
 
 # IDE
 .vscode/

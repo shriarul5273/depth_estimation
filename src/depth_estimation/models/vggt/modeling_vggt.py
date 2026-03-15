@@ -1131,3 +1131,23 @@ class VGGTModel(BaseDepthModel):
         model = cls(config)
         model._net = net
         return model
+
+    def _backbone_module(self):
+        """Return the Aggregator (frame + global attention blocks) as the backbone."""
+        if self._net is None:
+            raise RuntimeError("Model not loaded. Call from_pretrained() first.")
+        return self._net.aggregator
+
+    def unfreeze_top_k_backbone_layers(self, k: int) -> None:
+        """Unfreeze the last k frame_blocks and last k global_blocks of the Aggregator."""
+        agg = self._backbone_module()
+        for block in list(agg.frame_blocks)[-k:]:
+            for p in block.parameters():
+                p.requires_grad = True
+        for block in list(agg.global_blocks)[-k:]:
+            for p in block.parameters():
+                p.requires_grad = True
+        logger.info(
+            "Unfroze top %d frame_blocks and global_blocks. Trainable: %s",
+            k, f"{self._count_trainable():,}"
+        )

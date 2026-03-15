@@ -27,7 +27,7 @@ Seven standard metrics are computed over valid pixels (pixels where ground-truth
 | `delta2` | same, threshold 1.25² | [0, 1] | higher ↑ |
 | `delta3` | same, threshold 1.25³ | [0, 1] | higher ↑ |
 
-All formulas follow Eigen et al. (2014) and are used in virtually every depth estimation paper.
+All formulas follow Eigen et al. \[1\] and are used in virtually every depth estimation paper. The threshold accuracy metrics (δ < 1.25, 1.25², 1.25³) were further standardised in Eigen & Fergus \[2\].
 
 ---
 
@@ -63,17 +63,7 @@ evaluate(
 
 Returns a `dict` with keys `abs_rel`, `sq_rel`, `rmse`, `rmse_log`, `delta1`, `delta2`, `delta3`, `n_pixels`, `n_samples`.
 
-### Depth alignment for relative models
-
-Relative models (Depth Anything, MiDaS, Pixel-Perfect Depth) output depth up to an unknown global scale and shift. Before computing metrics against metric ground truth, each sample's prediction is aligned using least-squares:
-
-```
-d_aligned = scale * d_pred + shift
-```
-
-where `scale` and `shift` minimise `‖scale * d_pred + shift − d_gt‖²` over valid pixels. This is the standard approach used by every paper that evaluates relative models on metric benchmarks (NYU, KITTI, DIODE).
-
-Alignment is applied automatically when `config.is_metric = False`. Disable it with `align=False`.
+Relative models are aligned per-sample via least-squares scale+shift before metrics are computed. Disable with `align=False`.
 
 ### Examples
 
@@ -83,15 +73,6 @@ from depth_estimation.evaluation import evaluate
 # Full NYU test set
 results = evaluate("depth-anything-v2-vitb", "nyu_depth_v2")
 
-# Quick 50-sample check on DIODE indoors
-results = evaluate(
-    "depth-pro",
-    "diode",
-    split="val",
-    scene_type="indoors",
-    num_samples=50,
-)
-
 # KITTI (path required)
 results = evaluate(
     "zoedepth",
@@ -99,11 +80,6 @@ results = evaluate(
     dataset_root="/data/kitti",
     align=False,   # metric model — no alignment needed
 )
-
-# Pass an already-loaded model instance to avoid re-loading between calls
-from depth_estimation import AutoDepthModel
-model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
-results = evaluate(model, "nyu_depth_v2")
 ```
 
 ---
@@ -114,15 +90,8 @@ results = evaluate(model, "nyu_depth_v2")
 compare(
     models: list[str],
     dataset: str | BaseDepthDataset,
-    split: str = "test",
-    dataset_root: str = None,
-    batch_size: int = 1,
-    device: str = None,
-    num_workers: int = 4,
-    align: bool = True,
     num_samples: int = None,
-    print_table: bool = True,
-    **dataset_kwargs,
+    ...same remaining args as evaluate()...
 ) -> dict[str, dict]
 ```
 
@@ -180,8 +149,6 @@ result  = metrics(pred, target, valid_mask)
 
 Accumulates metrics across batches for **correct dataset-level RMSE**.
 
-Computing RMSE as the mean of per-batch RMSEs is biased when batches have different numbers of valid pixels (common for KITTI's sparse LiDAR GT). `Evaluator` instead accumulates the sum of squared errors over all valid pixels, then divides and takes the square root at the end.
-
 ```python
 from depth_estimation.evaluation import Evaluator
 
@@ -195,6 +162,7 @@ for batch in dataloader:
 
 results = ev.compute()
 # {"abs_rel": ..., "rmse": ..., "delta1": ..., ..., "n_pixels": 12345678}
+# Note: RMSE is computed over all valid pixels globally, not as a mean of per-batch RMSEs.
 
 ev.reset()  # clear state before the next evaluation run
 ```
@@ -212,12 +180,6 @@ import numpy as np
 scale, shift = align_least_squares(pred_np, target_np, mask_np)
 aligned = (scale * pred_np + shift).clip(min=1e-6)
 ```
-
-| Argument | Type | Description |
-|---|---|---|
-| `pred` | `np.ndarray (H, W)` | Relative depth prediction. |
-| `target` | `np.ndarray (H, W)` | Metric ground truth in metres. |
-| `mask` | `np.ndarray (H, W)` bool | Valid pixels. |
 
 Returns `(scale, shift)` as Python floats.
 
@@ -240,109 +202,44 @@ p = profile_latency(
 )
 ```
 
-| Argument | Default | Description |
-|---|---|---|
-| `model` | **required** | Model variant ID or instance. |
-| `input_size` | `518` | Square input spatial dimension. |
-| `batch_size` | `1` | Batch size for each forward pass. |
-| `num_warmup` | `10` | Warmup passes (not timed). |
-| `num_runs` | `100` | Timed passes. |
-| `device` | `None` | Auto-detected. |
-| `half` | `False` | FP16 precision. |
-
-Returns a dict:
-
-| Key | Description |
-|---|---|
-| `mean_ms` | Mean latency per batch (ms). |
-| `std_ms` | Standard deviation (ms). |
-| `min_ms` | Minimum observed (ms). |
-| `max_ms` | Maximum observed (ms). |
-| `p50_ms` | 50th-percentile latency (ms). |
-| `p95_ms` | 95th-percentile latency (ms). |
-| `p99_ms` | 99th-percentile latency (ms). |
-| `fps` | Throughput: `batch_size / (mean_ms / 1000)`. |
-| `memory_mb` | Peak GPU memory allocated (MiB). `None` on CPU/MPS. |
-| `device` | Device string used. |
-| `input_shape` | `(B, 3, H, W)` tuple. |
-
-GPU timings use `torch.cuda.synchronize()` before each clock reading; CPU timings use `time.perf_counter()`.
-
----
-
-## CLI: `depth-estimate evaluate`
-
-The evaluation suite is also available directly from the command line — no Python script required.
-
-```bash
-# Single model on NYU Depth V2 (auto-downloads ~2.8 GB)
-depth-estimate evaluate --model depth-anything-v2-vitb --dataset nyu_depth_v2
-
-# Quick 50-sample check
-depth-estimate evaluate --model depth-pro --dataset nyu --num-samples 50
-
-# KITTI Eigen (manual download required)
-depth-estimate evaluate --model zoedepth --dataset kitti --dataset-root /data/kitti --no-align
-
-# DIODE indoors subset
-depth-estimate evaluate --model depth-anything-v2-vitl --dataset diode --scene-type indoors
-
-# Compare preset models and save results
-depth-estimate evaluate --compare --dataset nyu_depth_v2 --output results/compare.json
-
-# Machine-readable output
-depth-estimate evaluate --model depth-pro --dataset nyu --json
-```
-
-See [docs/cli.md](cli.md) for the full flag reference.
+Returns `mean_ms`, `std_ms`, `min_ms`, `max_ms`, `p50_ms`, `p95_ms`, `p99_ms`, `fps`, `memory_mb`, `device`, `input_shape`.
 
 ---
 
 ## Evaluation Scripts
 
-Ready-to-run Python scripts are in `examples/`. All scripts share the same interface.
+Ready-to-run scripts: `examples/eval_nyu.py`, `examples/eval_kitti.py`, `examples/eval_diode.py` — all accept `--model`, `--compare`, `--num-samples`, `--output`.
 
-### Common flags
+---
 
-| Flag | Default | Description |
-|---|---|---|
-| `--model MODEL` | varies | Model variant ID. |
-| `--compare` | off | Evaluate a preset list of models and print a table. |
-| `--num-samples N` | all | Limit to N samples for quick checks. |
-| `--batch-size B` | `1` | Forward pass batch size. |
-| `--num-workers W` | `4` | DataLoader workers. |
-| `--device DEVICE` | auto | `cuda`, `cpu`, or `mps`. |
-| `--no-align` | off | Disable alignment for relative models. |
-| `--output FILE` | none | Save results to a JSON file. |
+## References
 
-### `eval_nyu.py` — NYU Depth V2 (654 test images)
+\[1\] **Eigen, D., Puhrsch, C., & Fergus, R.** (2014).
+*Depth Map Prediction from a Single Image using a Multi-Scale Deep Network.*
+NeurIPS 2014.
+[https://arxiv.org/abs/1406.2283](https://arxiv.org/abs/1406.2283)
 
-```bash
-# Auto-downloads dataset (~2.8 GB) on first run
-python examples/eval_nyu.py --model depth-anything-v2-vitb
-python examples/eval_nyu.py --compare
-python examples/eval_nyu.py --model depth-anything-v2-vitb --num-samples 50
-python examples/eval_nyu.py --model depth-pro --output results/depth_pro.json
-```
+\[2\] **Eigen, D., & Fergus, R.** (2015).
+*Predicting Depth, Surface Normals and Semantic Labels with a Common Multi-Scale Convolutional Architecture.*
+ICCV 2015.
+[https://arxiv.org/abs/1411.4734](https://arxiv.org/abs/1411.4734)
 
-Requires `h5py`: `pip install "depth-estimation[data]"`
+\[3\] **Silberman, N., Hoiem, D., Kohli, P., & Fergus, R.** (2012).
+*Indoor Segmentation and Support Inference from RGBD Images.*
+ECCV 2012.
+[https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html](https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html)
 
-### `eval_kitti.py` — KITTI Eigen (697 test images)
+\[4\] **Geiger, A., Lenz, P., & Urtasun, R.** (2012).
+*Are we ready for Autonomous Driving? The KITTI Vision Benchmark Suite.*
+CVPR 2012.
+[https://www.cvlibs.net/datasets/kitti/](https://www.cvlibs.net/datasets/kitti/)
 
-```bash
-# --dataset-root is required (see docs/data.md for download instructions)
-python examples/eval_kitti.py --dataset-root /data/kitti
-python examples/eval_kitti.py --model zoedepth --dataset-root /data/kitti
-python examples/eval_kitti.py --compare --dataset-root /data/kitti
-python examples/eval_kitti.py --dataset-root /data/kitti --split val --num-samples 100
-```
+\[5\] **Vasiljevic, I., Kolkin, N., Zhang, S., et al.** (2019).
+*DIODE: A Dense Indoor and Outdoor DEpth Dataset.*
+arXiv 1908.00463.
+[https://arxiv.org/abs/1908.00463](https://arxiv.org/abs/1908.00463)
 
-### `eval_diode.py` — DIODE val set (771 images)
-
-```bash
-# Auto-downloads val set (~2.6 GB) on first run
-python examples/eval_diode.py
-python examples/eval_diode.py --scene-type indoors --max-depth 10.0
-python examples/eval_diode.py --scene-type outdoors
-python examples/eval_diode.py --compare
-```
+\[6\] **Ranftl, R., Lasinger, K., Hafner, D., Schindler, K., & Koltun, V.** (2022).
+*Towards Robust Monocular Depth Estimation: Mixing Datasets for Zero-Shot Cross-Dataset Transfer.*
+IEEE TPAMI.
+[https://arxiv.org/abs/1907.01341](https://arxiv.org/abs/1907.01341)

@@ -1,6 +1,5 @@
 # Dependencies
 
-
 ## Core Dependencies
 
 These are installed automatically with `pip install depth-estimation`
@@ -22,15 +21,12 @@ These are installed automatically with `pip install depth-estimation`
 | einops | `>=0.6` | |
 | addict | (any) | |
 
-## Optional Dependencies
+## Extras
 
-Install with the extras shown below.
-
-| Extra | Install command | Package pinned | Required for |
-|---|---|---|---|
-| `transformers` | `pip install "depth-estimation[transformers]"` | `transformers>=4.30` | MiDaS, ZoeDepth |
-| `diffusers` | `pip install "depth-estimation[diffusers]"` | `diffusers>=0.25` | Marigold-DC |
-| `all` | `pip install "depth-estimation[all]"` | both above | All models |
+| Extra | Install command | Required for |
+|---|---|---|
+| `data` | `pip install "depth-estimation[data]"` | NYU Depth V2 (h5py) |
+| `dev` | `pip install "depth-estimation[dev]"` | Running tests |
 
 ## Development Dependencies
 

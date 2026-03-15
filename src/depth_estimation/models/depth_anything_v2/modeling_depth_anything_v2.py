@@ -852,6 +852,10 @@ class DepthAnythingV2Model(BaseDepthModel):
         """
         return self.net(pixel_values)
 
+    def _backbone_module(self):
+        """Return the inlined DINOv2 backbone (_DepthAnythingV2Net.pretrained)."""
+        return self.net.pretrained
+
     @torch.no_grad()
     def infer_image(self, raw_image, input_size=518):
         """Convenience method matching the original Depth Anything v2 API.

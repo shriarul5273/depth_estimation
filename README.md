@@ -1,8 +1,20 @@
 # depth_estimation
 
-A **Python library** for monocular depth estimation.
+<p align="center">
+    <a href="https://github.com/shriarul5273/depth_estimation/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/shriarul5273/depth_estimation?color=blue"></a>
+    <a href="https://pypi.org/project/depth-estimation/"><img alt="PyPI" src="https://img.shields.io/pypi/v/depth-estimation"></a>
+    <a href="https://pypi.org/project/depth-estimation/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/depth-estimation"></a>
+</p>
 
-Provides a unified, modular API for inference, evaluation, and dataset loading — supporting **12 model families** with **28 variants** and designed to accommodate new models with minimal friction.
+<h3 align="center">A unified Python library for monocular depth estimation</h3>
+
+<h3 align="center">Inference · Fine-Tuning · Evaluation · Dataset Loading</h3>
+
+---
+
+`depth_estimation` is the model-definition framework for depth estimation. It provides a single, consistent API across **12 model families and 28 variants** — so you can swap models, compare them, and fine-tune them without rewriting your pipeline.
+
+It covers the full workflow end-to-end: run inference with one line, evaluate on standard benchmarks, and fine-tune on custom depth data — all with the same library.
 
 ## Installation
 
@@ -10,27 +22,13 @@ Provides a unified, modular API for inference, evaluation, and dataset loading �
 pip install depth-estimation
 ```
 
-For dataset downloading (NYU Depth V2) install the `data` extra:
-
-```bash
-pip install "depth-estimation[data]"   # adds h5py, tqdm
-```
-
-For a full list of dependencies see [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md).
+See [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md) for optional extras (CUDA, MPS, etc.).
 
 ---
 
-## Quick Start
+## Quickstart
 
-| | Pipeline API | Auto Classes |
-|---|---|---|
-| **Setup** | One call, model + processor bundled | Load model and processor separately |
-| **Inference** | Pass image path directly | Call `processor()`, `model()`, `postprocess()` manually |
-| **Control** | Low — handles everything for you | High — you control each step |
-| **Output** | `DepthOutput` with `.depth`, `.colored_depth`, `.metadata` | Raw depth tensor |
-| **Best for** | Quick inference, scripts, demos | Custom pipelines, research, fine-grained control |
-
-### Pipeline API (Recommended)
+The `pipeline` API is the fastest way to get a depth map from any image:
 
 ```python
 from depth_estimation import pipeline
@@ -39,11 +37,10 @@ pipe = pipeline("depth-estimation", model="depth-anything-v2-vitb")
 result = pipe("image.jpg")
 
 depth_map = result.depth            # np.ndarray, float32, (H, W)
-colored   = result.colored_depth    # np.ndarray, uint8, (H, W, 3)
-meta      = result.metadata         # dict with model info
+colored   = result.colored_depth    # np.ndarray, uint8,   (H, W, 3)
 ```
 
-### Auto Classes
+For full control over each step — preprocessing, forward pass, postprocessing — use Auto Classes:
 
 ```python
 from depth_estimation import AutoDepthModel, AutoProcessor
@@ -55,17 +52,30 @@ processor = AutoProcessor.from_pretrained("zoedepth")
 inputs = processor("image.jpg")
 with torch.no_grad():
     depth = model(inputs["pixel_values"])
-
 result = processor.postprocess(depth, inputs["original_sizes"])
 ```
 
-### Batch Inference
+Or from the command line:
 
-```python
-results = pipe(["img1.jpg", "img2.jpg", "img3.jpg"], batch_size=2)
-for r in results:
-    print(r.depth.shape)
+```bash
+depth-estimate predict image.jpg --model depth-anything-v2-vitb
 ```
+
+---
+
+## Why use depth_estimation?
+
+**1. One API, every model.**
+Switch from Depth Anything to DepthPro to MoGe by changing a single string. Preprocessing, postprocessing, and output format are identical across all models.
+
+**2. The full depth workflow in one place.**
+Most libraries stop at inference. This one covers training, evaluation on standard benchmarks, and dataset loading — so you don't have to stitch together separate tools.
+
+**3. Modular, single-file model design.**
+Each model lives in one self-contained file. No hidden abstractions. If you need to understand or modify a model, there's exactly one place to look. New models self-register — `AutoDepthModel` and `pipeline()` resolve them automatically.
+
+**4. Designed for research.**
+Trainable models with backbone freeze schedules, proper batch-level metric accumulation (no mean-of-means), and a `compare()` function that shows a formatted table across models.
 
 ---
 
@@ -73,201 +83,105 @@ for r in results:
 
 12 model families · 28 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
 
-| Family | Variants | Depth type |
-|---|---|---|
-| Depth Anything v1 | vits / vitb / vitl | Relative |
-| Depth Anything v2 | vits / vitb / vitl | Relative |
-| Depth Anything v3 | small / base / large / giant + nested + metric + mono | Relative + Metric |
-| ZoeDepth | nyu-kitti | Metric |
-| MiDaS | dpt-large / dpt-hybrid / beit-large | Relative |
-| Apple DepthPro | — | Metric |
-| Pixel-Perfect Depth | — | Relative |
-| Marigold-DC | — | Relative (depth completion) |
-| MoGe | v1 vitl / v2 vitl / v2 vitb / v2 vits (+ normal variants) | Metric |
-| OmniVGGT | vitl | Metric |
-| VGGT | standard / commercial | Metric |
+All models support inference and CLI. The Trainable column indicates fine-tuning support via `DepthTrainer`.
+
+| Family | Variants | Depth type | Trainable |
+|---|---|---|:---:|
+| Depth Anything v1 | vits / vitb / vitl | Relative | ✅ |
+| Depth Anything v2 | vits / vitb / vitl | Relative | ✅ |
+| Depth Anything v3 | small / base / large / giant / mono / metric | Relative + Metric | ✅ |
+| Depth Anything v3 Nested | nested-giant-large | Relative | ✅ |
+| ZoeDepth | nyu / kitti | Metric | ❌ |
+| MiDaS | dpt-large / dpt-hybrid / beit-large | Relative | ✅ |
+| Apple DepthPro | — | Metric | ✅ |
+| Pixel-Perfect Depth | — | Relative | ❌ |
+| Marigold-DC | — | Relative (depth completion) | ❌ |
+| MoGe | v1 vitl / v2 vitl / v2 vitb / v2 vits (+ normal variants) | Metric | ❌ |
+| OmniVGGT | vitl | Metric | ✅ |
+| VGGT | standard / commercial | Metric | ✅ |
 
 ---
 
-## Datasets
+## What can you do?
 
-`load_dataset()` downloads and loads standard depth benchmarks with a single call.
+<details>
+<summary><b>Inference</b> — single image, batch, or video</summary>
+
+```python
+# Single image
+result = pipe("image.jpg")
+
+# Batch
+results = pipe(["img1.jpg", "img2.jpg"], batch_size=2)
+```
+
+```bash
+# CLI — batch predict
+depth-estimate predict "images/*.jpg" --model depth-anything-v2-vitb --output-dir results/
+```
+
+</details>
+
+<details>
+<summary><b>Evaluation</b> — standard benchmarks, custom predictions</summary>
+
+```python
+from depth_estimation.evaluation import evaluate, compare, Evaluator
+
+# Single model on NYU Depth V2
+results = evaluate("depth-anything-v2-vitb", "nyu_depth_v2", split="test")
+
+# Compare multiple models — prints table with best values marked (*)
+compare(["depth-anything-v2-vits", "depth-anything-v2-vitb"], dataset="nyu_depth_v2")
+
+# Accumulate metrics over your own dataloader
+ev = Evaluator()
+for pred, gt, mask in dataloader:
+    ev.update(pred, gt, mask)
+final = ev.compute()    # abs_rel, sq_rel, rmse, rmse_log, delta1/2/3
+```
+
+See [docs/evaluation.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/evaluation.md).
+
+</details>
+
+<details>
+<summary><b>Fine-Tuning</b> — any trainable model, any depth dataset</summary>
+
+```python
+from depth_estimation import DepthAnythingV2Model, DepthTrainer, DepthTrainingArguments, load_dataset
+from depth_estimation.data.transforms import get_train_transforms, get_val_transforms
+
+model    = DepthAnythingV2Model.from_pretrained("depth-anything-v2-vits", for_training=True)
+train_ds = load_dataset("nyu_depth_v2", split="train", transform=get_train_transforms(518))
+val_ds   = load_dataset("nyu_depth_v2", split="test",  transform=get_val_transforms(518))
+
+args = DepthTrainingArguments(output_dir="./checkpoints", num_epochs=25, batch_size=8,
+                               freeze_backbone_epochs=5, mixed_precision=True)
+DepthTrainer(model=model, args=args, train_dataset=train_ds, eval_dataset=val_ds).train()
+```
+
+Any `torch.utils.data.Dataset` returning `pixel_values / depth_map / valid_mask` works directly — no subclassing needed. See [docs/training.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/training.md).
+
+</details>
+
+<details>
+<summary><b>Dataset Loading</b> — standard benchmarks, custom folders</summary>
 
 ```python
 from depth_estimation import load_dataset
 
-# NYU Depth V2 — auto-downloads ~2.8 GB on first use
-ds = load_dataset("nyu_depth_v2", split="test")
-
-# DIODE val set — auto-downloads ~2.6 GB on first use
-ds = load_dataset("diode", split="val", scene_type="indoors")
-
-# KITTI Eigen — path required (see docs/data.md for download instructions)
-ds = load_dataset("kitti_eigen", split="test", root="/data/kitti")
-
-# Generic RGB + depth folder
-ds = load_dataset("folder", image_dir="rgb/", depth_dir="depth/")
+ds = load_dataset("nyu_depth_v2",  split="test")                                    # auto-downloads ~2.8 GB
+ds = load_dataset("diode",         split="val", scene_type="indoors")               # auto-downloads ~2.6 GB
+ds = load_dataset("kitti_eigen",   split="test", root="/data/kitti")               # local path
+ds = load_dataset("folder",        image_dir="rgb/", depth_dir="depth/")           # any folder
 ```
 
-Every dataset returns the same schema, compatible with `torch.utils.data.DataLoader`:
+See [docs/data.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/data.md).
 
-```python
-sample = ds[0]
-sample["pixel_values"]  # (3, H, W) float32, normalised [0, 1]
-sample["depth_map"]     # (1, H, W) float32, metres
-sample["valid_mask"]    # (1, H, W) bool
-```
-
-| Dataset | Auto-download | GT type | Test size |
-|---|---|---|---|
-| `nyu_depth_v2` | Yes (~2.8 GB) | Dense, metric | 654 images |
-| `diode` | Yes (~2.6 GB val) | Dense, metric | 771 images |
-| `kitti_eigen` | No (registration required) | Sparse LiDAR | 697 images |
-| `folder` | N/A | Any | N/A |
-
-See [docs/data.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/data.md) for full documentation.
+</details>
 
 ---
-
-## Evaluation
-
-Evaluate any model on any supported dataset with a single call. Relative-depth models are aligned per-sample (least-squares scale + shift) before metric computation — detected automatically from `config.is_metric`.
-
-### Evaluate one model
-
-```python
-from depth_estimation.evaluation import evaluate
-
-results = evaluate("depth-anything-v2-vitb", "nyu_depth_v2", split="test")
-# {"abs_rel": 0.043, "sq_rel": 0.012, "rmse": 0.312,
-#  "rmse_log": 0.061, "delta1": 0.982, "delta2": 0.997,
-#  "delta3": 0.999, "n_samples": 654}
-```
-
-### Compare multiple models
-
-```python
-from depth_estimation.evaluation import compare
-
-compare(
-    ["depth-anything-v2-vits", "depth-anything-v2-vitb", "depth-anything-v2-vitl"],
-    dataset="nyu_depth_v2",
-)
-```
-
-Prints a formatted table with best values marked (`*`).
-
-### Compute metrics on custom predictions
-
-```python
-from depth_estimation.evaluation import DepthMetrics, Evaluator
-
-# Per-prediction
-metrics = DepthMetrics()
-result  = metrics(pred_tensor, gt_tensor, valid_mask)
-
-# Accumulate correctly across batches (proper RMSE, not mean-of-means)
-ev = Evaluator()
-for pred, gt, mask in dataloader:
-    ev.update(pred, gt, mask)
-final = ev.compute()
-```
-
-### Profile latency
-
-```python
-from depth_estimation.evaluation import profile_latency
-
-p = profile_latency("depth-anything-v2-vitb", num_runs=100)
-print(f"{p['mean_ms']:.1f} ms  |  {p['fps']:.1f} FPS  |  {p['memory_mb']:.0f} MiB")
-```
-
-Metrics: `abs_rel`, `sq_rel`, `rmse`, `rmse_log`, `delta1` / `delta2` / `delta3`.
-
-See [docs/evaluation.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/evaluation.md) for full documentation.
-
-### Evaluation scripts
-
-Ready-to-run scripts are in `examples/`:
-
-```bash
-# NYU Depth V2 (auto-downloads dataset)
-python examples/eval_nyu.py --model depth-anything-v2-vitb
-python examples/eval_nyu.py --compare                        # all models, comparison table
-
-# KITTI Eigen (manual download required)
-python examples/eval_kitti.py --model zoedepth --dataset-root /data/kitti
-
-# DIODE (auto-downloads ~2.6 GB val set)
-python examples/eval_diode.py --scene-type indoors
-
-# Quick 50-sample sanity check on any script
-python examples/eval_nyu.py --model depth-anything-v2-vits --num-samples 50
-
-# Save results to JSON
-python examples/eval_nyu.py --model depth-pro --output results/depth_pro_nyu.json
-```
-
----
-
-## CLI
-
-After installing the package, a `depth-estimate` command is available.
-
-```bash
-# Single image → saves demo_depth.png
-depth-estimate predict examples/demo.png --model depth-anything-v2-vitb
-
-# Batch (directory or glob) → saves to results/
-depth-estimate predict "images/*.jpg" --model depth-anything-v2-vitb --output-dir results/
-
-# Video → saves side-by-side RGB | depth as MP4
-depth-estimate predict video.mp4 --model depth-anything-v2-vitb --output depth_video.mp4
-
-# Save raw float32 array (.npy) alongside the PNG
-depth-estimate predict examples/demo.png --model depth-anything-v2-vitb --format both
-
-# Change colormap
-depth-estimate predict examples/demo.png --model depth-anything-v2-vitb --colormap inferno
-
-# List all available models
-depth-estimate list-models
-
-# Show config details for a model
-depth-estimate info depth-anything-v2-vitb
-
-# Evaluate a model on NYU Depth V2 (auto-downloads ~2.8 GB)
-depth-estimate evaluate --model depth-anything-v2-vitb --dataset nyu_depth_v2
-
-# Quick 50-sample check
-depth-estimate evaluate --model depth-pro --dataset nyu --num-samples 50
-
-# Compare multiple models and save results
-depth-estimate evaluate --compare --dataset nyu_depth_v2 --output results.json
-```
-
-**Global flags** (`--device`, `--quiet`, `--verbose`) go before the subcommand:
-
-```bash
-depth-estimate --device cpu --quiet predict examples/demo.png --model depth-anything-v2-vitb
-```
-
-All subcommands support `--json` for machine-readable output. See [docs/cli.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/cli.md) for full documentation.
-
----
-
-## Architecture
-
-The library follows the **HuggingFace Transformers** modular design philosophy:
-
-- **Single model, single file** — each model's architecture is self-contained
-- **Shared processor** — preprocessing/postprocessing is not duplicated
-- **Registry-based auto-loading** — new models self-register, no core changes needed
-- **Config inheritance** — configs override only what differs from the base
-
-```
-Input → Processor.preprocess() → Model.forward() → Processor.postprocess() → DepthOutput
-```
 
 ## Adding a New Model
 
@@ -276,37 +190,13 @@ Input → Processor.preprocess() → Model.forward() → Processor.postprocess()
 3. Add `modeling_your_model.py` (inherit `BaseDepthModel`, single file)
 4. Add `__init__.py` with `MODEL_REGISTRY.register(...)`
 
-That's it — `AutoDepthModel`, `AutoProcessor`, and `pipeline()` will automatically resolve your model. See [docs/adding_a_model.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/adding_a_model.md) for a step-by-step guide.
-
----
-
-## Running Tests
-
-```bash
-pip install -e ".[dev]"
-pytest tests/ -v
-```
+`AutoDepthModel`, `AutoProcessor`, and `pipeline()` resolve the new model automatically. See [docs/adding_a_model.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/adding_a_model.md) for a step-by-step guide.
 
 ---
 
 ## Acknowledgments
 
-This library builds upon the incredible work of the following research teams:
-
-| Model | Repository |
-|---|---|
-| **Depth Anything v1** | [github.com/LiheYoung/Depth-Anything](https://github.com/LiheYoung/Depth-Anything) |
-| **Depth Anything v2** | [github.com/DepthAnything/Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2) |
-| **Depth Anything v3** | [github.com/DepthAnything/Depth-Anything-V3](https://github.com/DepthAnything/Depth-Anything-V3) |
-| **DINOv2** | [github.com/facebookresearch/dinov2](https://github.com/facebookresearch/dinov2) |
-| **DepthPro** | [github.com/apple/ml-depth-pro](https://github.com/apple/ml-depth-pro) |
-| **ZoeDepth** | [github.com/isl-org/ZoeDepth](https://github.com/isl-org/ZoeDepth) |
-| **MiDaS** | [github.com/isl-org/MiDaS](https://github.com/isl-org/MiDaS) |
-| **Pixel-Perfect Depth** | [github.com/gangweix/Pixel-Perfect-Depth](https://github.com/gangweix/Pixel-Perfect-Depth) |
-| **Marigold-DC** | [github.com/prs-eth/Marigold-DC](https://github.com/prs-eth/Marigold-DC) |
-| **MoGe** | [github.com/microsoft/MoGe](https://github.com/microsoft/MoGe) |
-| **VGGT** | [github.com/facebookresearch/vggt](https://github.com/facebookresearch/vggt) |
-| **OmniVGGT** | [github.com/Livioni/OmniVGGT](https://github.com/Livioni/OmniVGGT) |
+This library builds upon the work of 12 research teams — see [docs/models.md#citations](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md#citations) for the full list.
 
 ## License
 

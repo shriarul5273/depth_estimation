@@ -64,6 +64,31 @@ class YourModel(BaseDepthModel):
         return model
 ```
 
+## Step 3b: Training support (optional)
+
+To make the model trainable with `DepthTrainer`, implement `_backbone_module()` and handle `for_training=True` in `_load_pretrained_weights()`. All training helpers (`freeze_backbone()`, `unfreeze_backbone()`, `get_parameter_groups()`, `unfreeze_top_k_backbone_layers()`) are already in `BaseDepthModel` — they delegate to `_backbone_module()`.
+
+```python
+class YourModel(BaseDepthModel):
+    ...
+
+    def _backbone_module(self):
+        # Return the nn.Module that is the backbone (ViT, encoder, etc.)
+        # BaseDepthModel uses this for freeze/unfreeze and parameter groups.
+        return self.net.backbone
+
+    @classmethod
+    def _load_pretrained_weights(cls, model_id, device="cpu", for_training=False, **kwargs):
+        config = YourModelConfig.from_variant(model_id)
+        model = cls(config)
+        # load weights ...
+        if not for_training:
+            model.eval()
+        return model.to(device)
+```
+
+If the model cannot be trained (e.g. uses non-differentiable ops), raise `NotImplementedError` in `_backbone_module()` — the training helpers will surface a clear error rather than silently failing.
+
 ## Step 4: Register
 
 In `__init__.py`, register with the global registry:

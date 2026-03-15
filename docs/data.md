@@ -37,7 +37,7 @@ load_dataset(
 | `split` | `str` | `"train"` | `"train"`, `"val"`, or `"test"`. Not all datasets expose every split. |
 | `root` | `str` | `None` | Local directory for the dataset. Defaults to `~/.cache/depth_estimation/datasets/<name>/`. |
 | `download` | `bool` | `True` | Auto-download when files are missing (where supported). |
-| `transform` | callable | `None` | Paired transform applied after tensor conversion. See [Transforms](#transforms). |
+| `transform` | callable | `None` | Paired transform applied after tensor conversion. |
 | `**kwargs` | | | Extra keyword arguments forwarded to the dataset class (e.g. `scene_type="indoors"` for DIODE). |
 
 ### Supported datasets
@@ -92,19 +92,6 @@ Indoor RGB-D dataset captured with a Microsoft Kinect. The labeled set contains 
 **Requires:** `h5py` — `pip install "depth-estimation[data]"`
 
 ```python
-from depth_estimation.data import NYUDepthV2Dataset
-
-# Test set — downloads on first run
-ds = NYUDepthV2Dataset(split="test")
-
-# Specify a local root to avoid re-downloading
-ds = NYUDepthV2Dataset(root="/data/nyu", split="train", download=False)
-
-print(ds)
-# NYUDepthV2Dataset(split='test', n=654, root=~/.cache/.../nyu_depth_v2)
-```
-
-```python
 load_dataset("nyu_depth_v2", split="test")
 ```
 
@@ -115,8 +102,6 @@ load_dataset("nyu_depth_v2", split="test")
 | `root` | `str \| Path` | cache dir | Directory for `.mat` files. |
 | `split` | `str` | `"train"` | `"train"` (795) or `"test"` (654). |
 | `transform` | callable | `None` | Paired transform. |
-| `min_depth` | `float` | `1e-3` | Minimum valid depth in metres. |
-| `max_depth` | `float` | `10.0` | Maximum valid depth in metres. |
 | `download` | `bool` | `True` | Auto-download missing files. |
 
 ---
@@ -132,16 +117,6 @@ Dense indoor and outdoor depth dataset captured with a FARO Focus 3D laser scann
 - Train set (~81 GB): `https://diode-dataset.s3.amazonaws.com/train.tar.gz`
 
 ```python
-from depth_estimation.data import DIODEDataset
-
-# Val set, indoors only — downloads ~2.6 GB on first run
-ds = DIODEDataset(split="val", scene_type="indoors")
-
-# Both scene types
-ds = DIODEDataset(split="val", scene_type="all")
-```
-
-```python
 load_dataset("diode", split="val", scene_type="outdoors")
 ```
 
@@ -153,8 +128,6 @@ load_dataset("diode", split="val", scene_type="outdoors")
 | `split` | `str` | `"val"` | `"train"`, `"val"`, or `"test"`. `"test"` loads the val set (no public GT for test). |
 | `scene_type` | `str` | `"all"` | `"indoors"`, `"outdoors"`, or `"all"`. |
 | `transform` | callable | `None` | Paired transform. |
-| `min_depth` | `float` | `1e-3` | Minimum valid depth in metres. |
-| `max_depth` | `float` | `350.0` | Maximum valid depth in metres (outdoor scenes reach ~300 m). |
 | `download` | `bool` | `True` | Auto-download missing archives. |
 
 ---
@@ -201,12 +174,6 @@ root/
 Ground-truth depth maps are 16-bit PNG files. The raw integer value divided by `256.0` gives depth in metres (KITTI convention).
 
 ```python
-from depth_estimation.data import KITTIEigenDataset
-
-ds = KITTIEigenDataset(root="/data/kitti", split="test")
-```
-
-```python
 load_dataset("kitti_eigen", split="test", root="/data/kitti")
 ```
 
@@ -216,27 +183,13 @@ load_dataset("kitti_eigen", split="test", root="/data/kitti")
 |---|---|---|---|
 | `root` | `str \| Path` | **required** | Path to the KITTI raw data root. |
 | `split` | `str` | `"train"` | `"train"`, `"val"`, or `"test"`. |
-| `filenames` | `str \| Path` | `None` | Path to a custom split `.txt` file. Auto-resolved from `root` if `None`. |
 | `transform` | callable | `None` | Paired transform. |
-| `min_depth` | `float` | `1e-3` | Minimum valid depth in metres. |
-| `max_depth` | `float` | `80.0` | Maximum valid depth in metres. |
-| `download_split` | `bool` | `True` | Auto-download the split `.txt` file. |
 
 ---
 
 ### FolderDataset
 
 Load paired RGB + depth images from two flat directories. Files are matched by stem (filename without extension).
-
-```python
-from depth_estimation.data import FolderDataset
-
-ds = FolderDataset(
-    image_dir="data/rgb/",
-    depth_dir="data/depth/",
-    depth_scale=1000.0,   # millimetres → metres
-)
-```
 
 ```python
 load_dataset(
@@ -264,46 +217,16 @@ load_dataset(
 | `depth_dir` | `str \| Path` | `None` | Directory of depth maps. If `None`, depth_map is all-zero. |
 | `depth_scale` | `float` | `256.0` | Divisor for integer depth files (PNG/TIFF). `256.0` is KITTI convention; use `1000.0` for millimetres. |
 | `transform` | callable | `None` | Paired transform. |
-| `min_depth` | `float` | `1e-3` | Minimum valid depth. |
-| `max_depth` | `float` | `1000.0` | Maximum valid depth. |
 
 ---
 
 ## Transforms
 
-Transforms must accept and return `(pixel_values, depth_map, valid_mask)` tuples:
-
-```python
-def my_transform(pixel_values, depth_map, valid_mask):
-    # pixel_values: (3, H, W) float32 tensor
-    # depth_map:    (1, H, W) float32 tensor
-    # valid_mask:   (1, H, W) bool tensor
-    ...
-    return pixel_values, depth_map, valid_mask
-
-ds = load_dataset("nyu_depth_v2", split="train", transform=my_transform)
-```
-
-Note: Spatial transforms (flip, crop, resize) must be applied identically to all three tensors. Photometric transforms (colour jitter, brightness) apply to `pixel_values` only. See `docs/training_implementation_guide.md` for full paired transform implementations.
+Transforms must accept and return `(pixel_values, depth_map, valid_mask)` tuples. Built-in paired transforms (`get_train_transforms`, `get_val_transforms`, and individual `Paired*` classes) are in `depth_estimation.data.transforms` — see [docs/training.md](training.md) for the full reference.
 
 ---
 
 ## Using with DataLoader
-
-All dataset classes are `torch.utils.data.Dataset` subclasses and work directly with `DataLoader`.
-
-```python
-from torch.utils.data import DataLoader
-from depth_estimation.data import NYUDepthV2Dataset
-
-ds = NYUDepthV2Dataset(split="train")
-loader = DataLoader(ds, batch_size=8, shuffle=True, num_workers=4)
-
-for batch in loader:
-    pixel_values = batch["pixel_values"]  # (8, 3, 480, 640)
-    depth_map    = batch["depth_map"]     # (8, 1, 480, 640)
-    valid_mask   = batch["valid_mask"]    # (8, 1, 480, 640)
-```
 
 > **Note:** `NYUDepthV2Dataset` opens an h5py file handle lazily per worker. Set `num_workers=0` if you encounter issues with multiprocessing and h5py on Windows.
 

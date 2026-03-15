@@ -858,6 +858,14 @@ class PixelPerfectDepthModel(BaseDepthModel):
 
         return result
 
+    def _backbone_module(self):
+        raise NotImplementedError(
+            "PixelPerfectDepthModel is not directly trainable with DepthTrainer. "
+            "The forward() method runs iterative diffusion sampling (infer()), "
+            "which is not differentiable. Fine-tuning diffusion-based models "
+            "requires a separate denoising training objective."
+        )
+
     @classmethod
     def _load_pretrained_weights(
         cls,

@@ -1501,3 +1501,12 @@ class MoGeModel(BaseDepthModel):
         logger.info("Loaded MoGe-%s (%s) from %s",
                     config.version.upper(), config.backbone, config.hub_repo_id)
         return model
+
+    def _backbone_module(self):
+        raise NotImplementedError(
+            "MoGeModel is not directly trainable with DepthTrainer. "
+            "The forward() method calls _net.infer(), which includes non-differentiable "
+            "focal-length/shift recovery (Gauss-Newton optimisation). "
+            "To fine-tune MoGe, call self._net.forward() directly and implement "
+            "a custom training loop that avoids the infer() post-processing."
+        )

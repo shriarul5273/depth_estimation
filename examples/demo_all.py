@@ -27,7 +27,7 @@ ALL_MODELS = [
     # "depth-anything-v1-vitb",
     # "depth-anything-v1-vitl",
     # # Depth Anything v2
-    # "depth-anything-v2-vits",
+    "depth-anything-v2-vits",
     # "depth-anything-v2-vitb",
     # "depth-anything-v2-vitl",
     # # Depth Anything v3
@@ -61,8 +61,6 @@ ALL_MODELS = [
     # VGGT
     # "vggt",
     # "vggt-commercial",
-    "map-anything",           # requires: pip install "depth_estimation[map-anything]"
-    # "map-anything-commercial",
 ]
 
 
