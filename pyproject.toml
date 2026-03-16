@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "depth_estimation"
-version = "0.0.9"
+version = "0.1.0"
 authors = [
     { name = "shriarul5273" },
 ]
@@ -27,7 +27,7 @@ classifiers = [
 ]
 keywords = ["depth-estimation", "monocular-depth", "computer-vision", "deep-learning", "pytorch", "fine-tuning", "training"]
 dependencies = [
-    "torch==2.10.0",
+    "torch==2.9.0",
     "torchvision>=0.15",
     "Pillow>=9.0",
     "numpy>=1.24",
