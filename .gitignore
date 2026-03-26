@@ -28,6 +28,7 @@ examples/checkpoints/
 *.swp
 *.swo
 *~
+*mp4
 
 # OS
 .DS_Store

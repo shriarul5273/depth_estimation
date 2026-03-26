@@ -84,6 +84,20 @@ def __getattr__(name):
         from .data.transforms import get_val_transforms
         globals()["get_val_transforms"] = get_val_transforms
         return get_val_transforms
+    # Video & streaming
+    if name == "VideoStream":
+        from .video import VideoStream
+        globals()["VideoStream"] = VideoStream
+        return VideoStream
+    if name == "process_video":
+        from .video import process_video
+        globals()["process_video"] = process_video
+        return process_video
+    # Visualization toolkit
+    if name == "viz":
+        from . import viz
+        globals()["viz"] = viz
+        return viz
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -107,6 +121,11 @@ __all__ = [
     "BerHuLoss",
     "get_train_transforms",
     "get_val_transforms",
+    # Video & streaming
+    "VideoStream",
+    "process_video",
+    # Visualization
+    "viz",
 ]
 
 __version__ = "0.0.9"

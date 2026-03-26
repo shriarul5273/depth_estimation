@@ -9,13 +9,13 @@
 
 <h3 align="center">A unified Python library for monocular depth estimation</h3>
 
-<h3 align="center">Inference · Fine-Tuning · Evaluation · Dataset Loading</h3>
+<h3 align="center">Inference · Video & Streaming · Visualization · Fine-Tuning · Evaluation · Dataset Loading</h3>
 
 ---
 
 `depth_estimation` is the model-definition framework for depth estimation. It provides a single, consistent API across **12 model families and 28 variants** — so you can swap models, compare them, and fine-tune them without rewriting your pipeline.
 
-It covers the full workflow end-to-end: run inference with one line, evaluate on standard benchmarks, and fine-tune on custom depth data — all with the same library.
+It covers the full workflow end-to-end: run inference with one line, stream depth from video, visualize results, evaluate on standard benchmarks, and fine-tune on custom depth data — all with the same library.
 
 ## Installation
 
@@ -120,6 +120,79 @@ results = pipe(["img1.jpg", "img2.jpg"], batch_size=2)
 # CLI — batch predict
 depth-estimate predict "images/*.jpg" --model depth-anything-v2-vitb --output-dir results/
 ```
+
+</details>
+
+<details>
+<summary><b>Video & Streaming</b> — frame-by-frame depth from video, webcam, or image sequences</summary>
+
+```python
+from depth_estimation import pipeline
+
+pipe = pipeline("depth-estimation", model="depth-anything-v2-vitb")
+
+# Stream a video file — yields DepthOutput per frame
+for result in pipe.stream("video.mp4", temporal_smoothing=0.5):
+    depth = result.depth                  # (H, W) float32
+    colored = result.colored_depth        # (H, W, 3) uint8
+    print(result.metadata["frame_index"])
+
+# Webcam stream
+for result in pipe.stream(0):            # device index
+    ...
+
+# Frame glob (sorted alphabetically)
+for result in pipe.stream("frames/*.png"):
+    ...
+
+# Write output video to disk
+pipe.process_video(
+    "input.mp4",
+    "output_depth.mp4",
+    colormap="inferno",
+    side_by_side=True,       # RGB | depth composite
+    temporal_smoothing=0.5,
+)
+```
+
+```bash
+# CLI — video prediction
+depth-estimate predict video.mp4 --model depth-anything-v2-vitb --output depth_video.mp4
+```
+
+See [docs/video.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/video.md).
+
+</details>
+
+<details>
+<summary><b>Visualization</b> — depth maps, comparisons, overlays, 3D animations, error maps</summary>
+
+```python
+from depth_estimation.viz import (
+    show_depth, compare_depths, overlay_depth,
+    create_anaglyph, animate_3d, plot_error_map,
+)
+
+# Display a depth result
+show_depth(result, colormap="Spectral_r", title="Depth Anything V2")
+
+# Side-by-side comparison of multiple models
+compare_depths([result_v2, result_pro], labels=["DA V2", "DepthPro"], save="compare.png")
+
+# Blend depth over RGB image
+overlay = overlay_depth(image, result.depth, alpha=0.5, colormap="inferno")
+
+# Red-cyan anaglyph stereo image
+anaglyph = create_anaglyph(image, result.depth, baseline=0.065)
+
+# Rotating 3D surface animation
+animate_3d(image, result.depth, "rotation.gif", frames=60)
+
+# Per-pixel error heatmap (requires ground truth)
+plot_error_map(pred_depth, gt_depth, metric="abs_rel", save="errors.png")
+```
+
+See [docs/viz.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/viz.md).
 
 </details>
 

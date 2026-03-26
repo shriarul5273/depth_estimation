@@ -7,7 +7,7 @@ Chains model + processor into a single callable.
 
 import logging
 import time
-from typing import Any, List, Optional, Union
+from typing import Any, Generator, List, Optional, Union
 
 import numpy as np
 import torch
@@ -124,6 +124,85 @@ class DepthPipeline:
             )
 
         return outputs[0] if len(outputs) == 1 else outputs
+
+    def stream(
+        self,
+        source: Union[str, int],
+        batch_size: int = 1,
+        colormap: str = "inferno",
+        temporal_smoothing: float = 0.0,
+    ) -> Generator[DepthOutput, None, None]:
+        """Stream depth results frame-by-frame from a video source.
+
+        Yields a :class:`~depth_estimation.output.DepthOutput` for each frame.
+        The ``metadata`` dict includes ``frame_index``, ``timestamp_seconds``,
+        and ``fps`` in addition to the standard pipeline keys.
+
+        Args:
+            source: Video file path, webcam device index, or glob pattern
+                (e.g. ``"frames/*.png"``).
+            batch_size: Frames per forward pass.
+            colormap: Matplotlib colormap for ``colored_depth``.
+            temporal_smoothing: EMA coefficient (0.0 = disabled, 0.9 = heavy).
+
+        Yields:
+            :class:`~depth_estimation.output.DepthOutput` per frame.
+
+        Example::
+
+            pipe = pipeline("depth-estimation", model="depth-anything-v2-vitb")
+            for result in pipe.stream("video.mp4", temporal_smoothing=0.5):
+                print(result.metadata["frame_index"], result.depth.shape)
+        """
+        from .video import VideoStream
+        from .processing_utils import DepthProcessor
+
+        stream = VideoStream(source, batch_size=batch_size,
+                             temporal_smoothing=temporal_smoothing)
+        try:
+            for frame_rgb, frame_meta in stream:
+                # Infer without colorizing — apply EMA first, then colorize
+                result = self(frame_rgb, batch_size=1, colorize=False, colormap=colormap)
+                smoothed = stream._temporal_filter(result.depth, temporal_smoothing)
+                colored = DepthProcessor._colorize(smoothed, colormap)
+
+                result.depth = smoothed
+                result.colored_depth = colored
+                result.metadata.update(frame_meta)
+                yield result
+        finally:
+            stream.close()
+
+    def process_video(
+        self,
+        input_path: str,
+        output_path: str,
+        colormap: str = "inferno",
+        side_by_side: bool = True,
+        fps: Optional[float] = None,
+        temporal_smoothing: float = 0.0,
+        batch_size: int = 1,
+    ) -> None:
+        """Process a video file and write the depth output to disk.
+
+        Delegates to :func:`depth_estimation.video.process_video`.
+
+        Args:
+            input_path: Path to the input video file.
+            output_path: Destination path for the output video.
+            colormap: Matplotlib colormap for depth visualization.
+            side_by_side: Write RGB | depth side-by-side when ``True``.
+            fps: Output FPS. ``None`` matches the source FPS.
+            temporal_smoothing: EMA coefficient (0.0 = disabled).
+            batch_size: Frames per forward pass.
+        """
+        from .video import process_video as _process_video
+        _process_video(
+            self, input_path, output_path,
+            colormap=colormap, side_by_side=side_by_side,
+            fps=fps, temporal_smoothing=temporal_smoothing,
+            batch_size=batch_size,
+        )
 
 
 def pipeline(

@@ -103,6 +103,49 @@ images
                  └─ DepthOutput  # depth, colored_depth, metadata
 ```
 
+## Video & Streaming
+
+`DepthPipeline` has two additional methods for video input. See [video.md](video.md) for the full reference.
+
+### `.stream()`
+
+```python
+pipe.stream(
+    source: str | int,
+    batch_size: int = 1,
+    colormap: str = "inferno",
+    temporal_smoothing: float = 0.0,
+) -> Generator[DepthOutput, ...]
+```
+
+Yields a `DepthOutput` for each frame. `metadata` includes `frame_index`, `timestamp_seconds`, and `fps` in addition to the standard keys.
+
+```python
+for result in pipe.stream("video.mp4", temporal_smoothing=0.5):
+    print(result.metadata["frame_index"], result.depth.shape)
+```
+
+`temporal_smoothing` applies an exponential moving average (EMA) across frames:
+`depth_t = alpha * depth_{t-1} + (1 - alpha) * depth_t`. Set to `0.0` to disable.
+
+### `.process_video()`
+
+```python
+pipe.process_video(
+    input_path: str,
+    output_path: str,
+    colormap: str = "inferno",
+    side_by_side: bool = True,
+    fps: float | None = None,
+    temporal_smoothing: float = 0.0,
+    batch_size: int = 1,
+)
+```
+
+Reads a video file, runs depth estimation on every frame, and writes the result to `output_path`. When `side_by_side=True` (default), the output frame is `[RGB | colored depth]` concatenated horizontally.
+
+---
+
 ## When to Use Auto Classes Instead
 
 Use `AutoDepthModel` + `AutoProcessor` directly when you need to:
