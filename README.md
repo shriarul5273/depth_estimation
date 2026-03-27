@@ -4,7 +4,7 @@
     <a href="https://github.com/shriarul5273/depth_estimation/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/shriarul5273/depth_estimation?color=blue"></a>
     <a href="https://pypi.org/project/depth-estimation/"><img alt="PyPI" src="https://img.shields.io/pypi/v/depth-estimation"></a>
     <a href="https://pypi.org/project/depth-estimation/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/depth-estimation"></a>
-    <a href="https://pepy.tech/projects/depth-estimation"><img alt="PyPI Downloads" src="https://static.pepy.tech/personalized-badge/depth-estimation?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads"></a>
+    <a href="https://pepy.tech/projects/depth-estimation"><img alt="PyPI Downloads" src="https://static.pepy.tech/personalized-badge/depth-estimation?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads"></a>
     <a href="https://huggingface.co/spaces/shriarul5273/Depth-Estimation-Compare-demo"><img alt="Demo" src="https://img.shields.io/badge/🤗%20Hugging%20Face-Demo-blue"></a>
 </p>
 

@@ -6,7 +6,7 @@ These are installed automatically with `pip install depth-estimation`
 
 | Package | Version Constraint | Notes |
 |---|---|---|
-| Python | `>=3.9` | 3.9 – 3.12 supported |
+| Python | `>=3.10` | 3.10 – 3.12 supported |
 | torch | `==2.10.0` | Pinned release |
 | torchvision | `>=0.15` | |
 | Pillow | `>=9.0` | |
