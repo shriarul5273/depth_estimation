@@ -21,6 +21,7 @@ It covers the full workflow end-to-end: run inference with one line, stream dept
 ## Installation
 
 ```bash
+# install your preferred PyTorch (CPU/CUDA/MPS) build first: https://pytorch.org/get-started/locally/
 pip install depth-estimation
 ```
 

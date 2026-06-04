@@ -2,13 +2,19 @@
 
 ## Core Dependencies
 
-These are installed automatically with `pip install depth-estimation`
+Install PyTorch manually first (CPU/CUDA/MPS as needed), then install `depth-estimation`.
+
+```bash
+# Choose the appropriate command for your platform from:
+# https://pytorch.org/get-started/locally/
+pip install depth-estimation
+```
+
+The following dependencies are installed automatically with `pip install depth-estimation`:
 
 | Package | Version Constraint | Notes |
 |---|---|---|
 | Python | `>=3.10` | 3.10 – 3.12 supported |
-| torch | `==2.10.0` | Pinned release |
-| torchvision | `>=0.15` | |
 | Pillow | `>=9.0` | |
 | NumPy | `>=1.24` | |
 | matplotlib | `>=3.6` | |
