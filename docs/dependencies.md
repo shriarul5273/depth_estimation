@@ -2,7 +2,7 @@
 
 ## Core Dependencies
 
-Install PyTorch manually first (CPU/CUDA/MPS as needed), then install `depth-estimation`.
+Install PyTorch and torchvision manually first (CPU/CUDA/MPS as needed), then install `depth-estimation`.
 
 ```bash
 # Choose the appropriate command for your platform from:

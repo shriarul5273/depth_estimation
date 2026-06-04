@@ -2,11 +2,20 @@
 
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib
 
-def test_pytorch_packages_not_pinned_in_project_dependencies():
+from packaging.requirements import Requirement
+
+
+def test_pytorch_packages_not_in_project_dependencies():
     pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    content = pyproject.read_text(encoding="utf-8")
+    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    dependencies = data["project"]["dependencies"]
 
-    assert '"torch"' not in content
-    assert '"torch==' not in content
-    assert '"torchvision"' not in content
+    dependency_names = {Requirement(dep).name.lower() for dep in dependencies}
+
+    assert "torch" not in dependency_names
+    assert "torchvision" not in dependency_names
