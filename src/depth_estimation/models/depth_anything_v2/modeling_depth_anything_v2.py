@@ -14,7 +14,7 @@ Licensed under the Apache License, Version 2.0.
 import logging
 import math
 from functools import partial
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -22,7 +22,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint
 from torch.nn.init import trunc_normal_
 
-from ...modeling_utils import BaseDepthModel, _auto_detect_device
+from ...modeling_utils import BaseDepthModel
 from .configuration_depth_anything_v2 import (
     DepthAnythingV2Config,
     _V2_VARIANT_MAP,
@@ -64,7 +64,12 @@ class DropPath(nn.Module):
 
 
 class LayerScale(nn.Module):
-    def __init__(self, dim: int, init_values: Union[float, torch.Tensor] = 1e-5, inplace: bool = False):
+    def __init__(
+        self,
+        dim: int,
+        init_values: Union[float, torch.Tensor] = 1e-5,
+        inplace: bool = False,
+    ):
         super().__init__()
         self.inplace = inplace
         self.gamma = nn.Parameter(init_values * torch.ones(dim))
@@ -77,10 +82,15 @@ class LayerScale(nn.Module):
 
 
 class Mlp(nn.Module):
-    def __init__(self, in_features: int, hidden_features: Optional[int] = None,
-                 out_features: Optional[int] = None,
-                 act_layer: Callable[..., nn.Module] = nn.GELU,
-                 drop: float = 0.0, bias: bool = True):
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: Optional[int] = None,
+        out_features: Optional[int] = None,
+        act_layer: Callable[..., nn.Module] = nn.GELU,
+        drop: float = 0.0,
+        bias: bool = True,
+    ):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
@@ -102,10 +112,15 @@ class Mlp(nn.Module):
 
 
 class SwiGLUFFN(nn.Module):
-    def __init__(self, in_features: int, hidden_features: Optional[int] = None,
-                 out_features: Optional[int] = None,
-                 act_layer: Callable[..., nn.Module] = None,
-                 drop: float = 0.0, bias: bool = True):
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: Optional[int] = None,
+        out_features: Optional[int] = None,
+        act_layer: Callable[..., nn.Module] = None,
+        drop: float = 0.0,
+        bias: bool = True,
+    ):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
@@ -120,16 +135,23 @@ class SwiGLUFFN(nn.Module):
 
 
 class SwiGLUFFNFused(SwiGLUFFN):
-    def __init__(self, in_features: int, hidden_features: Optional[int] = None,
-                 out_features: Optional[int] = None,
-                 act_layer: Callable[..., nn.Module] = None,
-                 drop: float = 0.0, bias: bool = True):
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: Optional[int] = None,
+        out_features: Optional[int] = None,
+        act_layer: Callable[..., nn.Module] = None,
+        drop: float = 0.0,
+        bias: bool = True,
+    ):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
         super().__init__(
-            in_features=in_features, hidden_features=hidden_features,
-            out_features=out_features, bias=bias,
+            in_features=in_features,
+            hidden_features=hidden_features,
+            out_features=out_features,
+            bias=bias,
         )
 
 
@@ -147,11 +169,15 @@ def make_2tuple(x):
 class PatchEmbed(nn.Module):
     """2D image to patch embedding: (B,C,H,W) -> (B,N,D)."""
 
-    def __init__(self, img_size: Union[int, Tuple[int, int]] = 224,
-                 patch_size: Union[int, Tuple[int, int]] = 16,
-                 in_chans: int = 3, embed_dim: int = 768,
-                 norm_layer: Optional[Callable] = None,
-                 flatten_embedding: bool = True):
+    def __init__(
+        self,
+        img_size: Union[int, Tuple[int, int]] = 224,
+        patch_size: Union[int, Tuple[int, int]] = 16,
+        in_chans: int = 3,
+        embed_dim: int = 768,
+        norm_layer: Optional[Callable] = None,
+        flatten_embedding: bool = True,
+    ):
         super().__init__()
         image_HW = make_2tuple(img_size)
         patch_HW = make_2tuple(patch_size)
@@ -164,14 +190,20 @@ class PatchEmbed(nn.Module):
         self.in_chans = in_chans
         self.embed_dim = embed_dim
         self.flatten_embedding = flatten_embedding
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW)
+        self.proj = nn.Conv2d(
+            in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW
+        )
         self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         _, _, H, W = x.shape
         patch_H, patch_W = self.patch_size
-        assert H % patch_H == 0, f"Input height {H} is not a multiple of patch height {patch_H}"
-        assert W % patch_W == 0, f"Input width {W} is not a multiple of patch width {patch_W}"
+        assert H % patch_H == 0, (
+            f"Input height {H} is not a multiple of patch height {patch_H}"
+        )
+        assert W % patch_W == 0, (
+            f"Input width {W} is not a multiple of patch width {patch_W}"
+        )
         x = self.proj(x)
         H, W = x.size(2), x.size(3)
         x = x.flatten(2).transpose(1, 2)
@@ -185,12 +217,19 @@ class PatchEmbed(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim: int, num_heads: int = 8, qkv_bias: bool = False,
-                 proj_bias: bool = True, attn_drop: float = 0.0, proj_drop: float = 0.0):
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int = 8,
+        qkv_bias: bool = False,
+        proj_bias: bool = True,
+        attn_drop: float = 0.0,
+        proj_drop: float = 0.0,
+    ):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.scale = head_dim ** -0.5
+        self.scale = head_dim**-0.5
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim, bias=proj_bias)
@@ -198,7 +237,11 @@ class Attention(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, C // self.num_heads)
+            .permute(2, 0, 3, 1, 4)
+        )
         q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
         attn = q @ k.transpose(-2, -1)
         attn = attn.softmax(dim=-1)
@@ -233,31 +276,57 @@ def drop_add_residual_stochastic_depth(
     x_flat = x.flatten(1)
     residual = residual.flatten(1)
     residual_scale_factor = b / sample_subset_size
-    x_plus_residual = torch.index_add(x_flat, 0, brange, residual.to(dtype=x.dtype), alpha=residual_scale_factor)
+    x_plus_residual = torch.index_add(
+        x_flat, 0, brange, residual.to(dtype=x.dtype), alpha=residual_scale_factor
+    )
     return x_plus_residual.view_as(x)
 
 
 class Block(nn.Module):
-    def __init__(self, dim: int, num_heads: int, mlp_ratio: float = 4.0,
-                 qkv_bias: bool = False, proj_bias: bool = True,
-                 ffn_bias: bool = True, drop: float = 0.0, attn_drop: float = 0.0,
-                 init_values=None, drop_path: float = 0.0,
-                 act_layer: Callable[..., nn.Module] = nn.GELU,
-                 norm_layer: Callable[..., nn.Module] = nn.LayerNorm,
-                 attn_class: Callable[..., nn.Module] = Attention,
-                 ffn_layer: Callable[..., nn.Module] = Mlp):
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int,
+        mlp_ratio: float = 4.0,
+        qkv_bias: bool = False,
+        proj_bias: bool = True,
+        ffn_bias: bool = True,
+        drop: float = 0.0,
+        attn_drop: float = 0.0,
+        init_values=None,
+        drop_path: float = 0.0,
+        act_layer: Callable[..., nn.Module] = nn.GELU,
+        norm_layer: Callable[..., nn.Module] = nn.LayerNorm,
+        attn_class: Callable[..., nn.Module] = Attention,
+        ffn_layer: Callable[..., nn.Module] = Mlp,
+    ):
         super().__init__()
         self.norm1 = norm_layer(dim)
-        self.attn = attn_class(dim, num_heads=num_heads, qkv_bias=qkv_bias,
-                               proj_bias=proj_bias, attn_drop=attn_drop, proj_drop=drop)
-        self.ls1 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.attn = attn_class(
+            dim,
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            proj_bias=proj_bias,
+            attn_drop=attn_drop,
+            proj_drop=drop,
+        )
+        self.ls1 = (
+            LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        )
         self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = ffn_layer(in_features=dim, hidden_features=mlp_hidden_dim,
-                             act_layer=act_layer, drop=drop, bias=ffn_bias)
-        self.ls2 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.mlp = ffn_layer(
+            in_features=dim,
+            hidden_features=mlp_hidden_dim,
+            act_layer=act_layer,
+            drop=drop,
+            bias=ffn_bias,
+        )
+        self.ls2 = (
+            LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        )
         self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.sample_drop_ratio = drop_path
 
@@ -269,10 +338,16 @@ class Block(nn.Module):
             return self.ls2(self.mlp(self.norm2(x)))
 
         if self.training and self.sample_drop_ratio > 0.1:
-            x = drop_add_residual_stochastic_depth(x, residual_func=attn_residual_func,
-                                                   sample_drop_ratio=self.sample_drop_ratio)
-            x = drop_add_residual_stochastic_depth(x, residual_func=ffn_residual_func,
-                                                   sample_drop_ratio=self.sample_drop_ratio)
+            x = drop_add_residual_stochastic_depth(
+                x,
+                residual_func=attn_residual_func,
+                sample_drop_ratio=self.sample_drop_ratio,
+            )
+            x = drop_add_residual_stochastic_depth(
+                x,
+                residual_func=ffn_residual_func,
+                sample_drop_ratio=self.sample_drop_ratio,
+            )
         elif self.training and self.sample_drop_ratio > 0.0:
             x = x + self.drop_path1(attn_residual_func(x))
             x = x + self.drop_path1(ffn_residual_func(x))
@@ -295,12 +370,20 @@ class BlockChunk(nn.ModuleList):
 # --- DinoVisionTransformer ---
 
 
-def named_apply(fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False) -> nn.Module:
+def named_apply(
+    fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False
+) -> nn.Module:
     if not depth_first and include_root:
         fn(module=module, name=name)
     for child_name, child_module in module.named_children():
         child_name = ".".join((name, child_name)) if name else child_name
-        named_apply(fn=fn, module=child_module, name=child_name, depth_first=depth_first, include_root=True)
+        named_apply(
+            fn=fn,
+            module=child_module,
+            name=child_name,
+            depth_first=depth_first,
+            include_root=True,
+        )
     if depth_first and include_root:
         fn(module=module, name=name)
     return module
@@ -353,15 +436,23 @@ class DinoVisionTransformer(nn.Module):
         self.interpolate_antialias = interpolate_antialias
         self.interpolate_offset = interpolate_offset
 
-        self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size,
-                                       in_chans=in_chans, embed_dim=embed_dim)
+        self.patch_embed = embed_layer(
+            img_size=img_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
+            embed_dim=embed_dim,
+        )
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, num_patches + self.num_tokens, embed_dim)
+        )
         assert num_register_tokens >= 0
         self.register_tokens = (
-            nn.Parameter(torch.zeros(1, num_register_tokens, embed_dim)) if num_register_tokens else None
+            nn.Parameter(torch.zeros(1, num_register_tokens, embed_dim))
+            if num_register_tokens
+            else None
         )
 
         if drop_path_uniform:
@@ -380,10 +471,17 @@ class DinoVisionTransformer(nn.Module):
 
         blocks_list = [
             block_fn(
-                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio,
-                qkv_bias=qkv_bias, proj_bias=proj_bias, ffn_bias=ffn_bias,
-                drop_path=dpr[i], norm_layer=norm_layer, act_layer=act_layer,
-                ffn_layer=ffn_layer_cls, init_values=init_values,
+                dim=embed_dim,
+                num_heads=num_heads,
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                proj_bias=proj_bias,
+                ffn_bias=ffn_bias,
+                drop_path=dpr[i],
+                norm_layer=norm_layer,
+                act_layer=act_layer,
+                ffn_layer=ffn_layer_cls,
+                init_values=init_values,
             )
             for i in range(depth)
         ]
@@ -393,7 +491,9 @@ class DinoVisionTransformer(nn.Module):
             chunked_blocks = []
             chunksize = depth // block_chunks
             for i in range(0, depth, chunksize):
-                chunked_blocks.append([nn.Identity()] * i + blocks_list[i: i + chunksize])
+                chunked_blocks.append(
+                    [nn.Identity()] * i + blocks_list[i : i + chunksize]
+                )
             self.blocks = nn.ModuleList([BlockChunk(p) for p in chunked_blocks])
         else:
             self.chunked_blocks = False
@@ -428,7 +528,9 @@ class DinoVisionTransformer(nn.Module):
         sqrt_N = math.sqrt(N)
         sx, sy = float(w0) / sqrt_N, float(h0) / sqrt_N
         patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed.reshape(1, int(sqrt_N), int(sqrt_N), dim).permute(0, 3, 1, 2),
+            patch_pos_embed.reshape(1, int(sqrt_N), int(sqrt_N), dim).permute(
+                0, 3, 1, 2
+            ),
             scale_factor=(sx, sy),
             mode="bicubic",
             antialias=self.interpolate_antialias,
@@ -437,13 +539,17 @@ class DinoVisionTransformer(nn.Module):
         assert int(w0) == patch_pos_embed.shape[-2]
         assert int(h0) == patch_pos_embed.shape[-1]
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
+        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(
+            previous_dtype
+        )
 
     def prepare_tokens_with_masks(self, x, masks=None):
         B, nc, w, h = x.shape
         x = self.patch_embed(x)
         if masks is not None:
-            x = torch.where(masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x)
+            x = torch.where(
+                masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x
+            )
 
         x = torch.cat((self.cls_token.expand(x.shape[0], -1, -1), x), dim=1)
         x = x + self.interpolate_pos_encoding(x, w, h)
@@ -464,51 +570,64 @@ class DinoVisionTransformer(nn.Module):
         x_norm = self.norm(x)
         return {
             "x_norm_clstoken": x_norm[:, 0],
-            "x_norm_regtokens": x_norm[:, 1: self.num_register_tokens + 1],
-            "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1:],
+            "x_norm_regtokens": x_norm[:, 1 : self.num_register_tokens + 1],
+            "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1 :],
             "x_prenorm": x,
             "masks": masks,
         }
 
     def forward_features_list(self, x_list, masks_list):
-        x = [self.prepare_tokens_with_masks(x, masks) for x, masks in zip(x_list, masks_list)]
+        x = [
+            self.prepare_tokens_with_masks(x, masks)
+            for x, masks in zip(x_list, masks_list)
+        ]
         for blk in self.blocks:
             x = blk(x)
         all_x = x
         output = []
         for x, masks in zip(all_x, masks_list):
             x_norm = self.norm(x)
-            output.append({
-                "x_norm_clstoken": x_norm[:, 0],
-                "x_norm_regtokens": x_norm[:, 1: self.num_register_tokens + 1],
-                "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1:],
-                "x_prenorm": x,
-                "masks": masks,
-            })
+            output.append(
+                {
+                    "x_norm_clstoken": x_norm[:, 0],
+                    "x_norm_regtokens": x_norm[:, 1 : self.num_register_tokens + 1],
+                    "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1 :],
+                    "x_prenorm": x,
+                    "masks": masks,
+                }
+            )
         return output
 
     def _get_intermediate_layers_not_chunked(self, x, n=1):
         x = self.prepare_tokens_with_masks(x)
         output, total_block_len = [], len(self.blocks)
-        blocks_to_take = range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        blocks_to_take = (
+            range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        )
         for i, blk in enumerate(self.blocks):
             x = blk(x)
             if i in blocks_to_take:
                 output.append(x)
-        assert len(output) == len(blocks_to_take), f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        assert len(output) == len(blocks_to_take), (
+            f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        )
         return output
 
     def _get_intermediate_layers_chunked(self, x, n=1):
         x = self.prepare_tokens_with_masks(x)
         output, i, total_block_len = [], 0, len(self.blocks[-1])
-        blocks_to_take = range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        blocks_to_take = (
+            range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        )
         for block_chunk in self.blocks:
             for blk in block_chunk[i:]:
                 x = blk(x)
                 if i in blocks_to_take:
                     output.append(x)
                 i += 1
-        assert len(output) == len(blocks_to_take), f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        assert len(output) == len(blocks_to_take), (
+            f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        )
         return output
 
     def get_intermediate_layers(
@@ -526,11 +645,13 @@ class DinoVisionTransformer(nn.Module):
         if norm:
             outputs = [self.norm(out) for out in outputs]
         class_tokens = [out[:, 0] for out in outputs]
-        outputs = [out[:, 1 + self.num_register_tokens:] for out in outputs]
+        outputs = [out[:, 1 + self.num_register_tokens :] for out in outputs]
         if reshape:
             B, _, w, h = x.shape
             outputs = [
-                out.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
+                out.reshape(B, w // self.patch_size, h // self.patch_size, -1)
+                .permute(0, 3, 1, 2)
+                .contiguous()
                 for out in outputs
             ]
         if return_class_token:
@@ -550,33 +671,53 @@ class DinoVisionTransformer(nn.Module):
 
 def _vit_small(patch_size=16, num_register_tokens=0, **kwargs):
     return DinoVisionTransformer(
-        patch_size=patch_size, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4,
+        patch_size=patch_size,
+        embed_dim=384,
+        depth=12,
+        num_heads=6,
+        mlp_ratio=4,
         block_fn=partial(Block, attn_class=MemEffAttention),
-        num_register_tokens=num_register_tokens, **kwargs,
+        num_register_tokens=num_register_tokens,
+        **kwargs,
     )
 
 
 def _vit_base(patch_size=16, num_register_tokens=0, **kwargs):
     return DinoVisionTransformer(
-        patch_size=patch_size, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4,
+        patch_size=patch_size,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
         block_fn=partial(Block, attn_class=MemEffAttention),
-        num_register_tokens=num_register_tokens, **kwargs,
+        num_register_tokens=num_register_tokens,
+        **kwargs,
     )
 
 
 def _vit_large(patch_size=16, num_register_tokens=0, **kwargs):
     return DinoVisionTransformer(
-        patch_size=patch_size, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4,
+        patch_size=patch_size,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4,
         block_fn=partial(Block, attn_class=MemEffAttention),
-        num_register_tokens=num_register_tokens, **kwargs,
+        num_register_tokens=num_register_tokens,
+        **kwargs,
     )
 
 
 def _vit_giant2(patch_size=16, num_register_tokens=0, **kwargs):
     return DinoVisionTransformer(
-        patch_size=patch_size, embed_dim=1536, depth=40, num_heads=24, mlp_ratio=4,
+        patch_size=patch_size,
+        embed_dim=1536,
+        depth=40,
+        num_heads=24,
+        mlp_ratio=4,
         block_fn=partial(Block, attn_class=MemEffAttention),
-        num_register_tokens=num_register_tokens, **kwargs,
+        num_register_tokens=num_register_tokens,
+        **kwargs,
     )
 
 
@@ -591,10 +732,14 @@ _DINOv2_MODEL_ZOO = {
 def build_dinov2_backbone(model_name: str) -> DinoVisionTransformer:
     """Build a DINOv2 backbone by name."""
     return _DINOv2_MODEL_ZOO[model_name](
-        img_size=518, patch_size=14, init_values=1.0,
+        img_size=518,
+        patch_size=14,
+        init_values=1.0,
         ffn_layer="mlp" if model_name != "vitg" else "swiglufused",
-        block_chunks=0, num_register_tokens=0,
-        interpolate_antialias=False, interpolate_offset=0.1,
+        block_chunks=0,
+        num_register_tokens=0,
+        interpolate_antialias=False,
+        interpolate_offset=0.1,
     )
 
 
@@ -615,10 +760,42 @@ def _make_scratch(in_shape, out_shape, groups=1, expand=False):
         out_shape2 = out_shape * 2
         out_shape3 = out_shape * 4
         out_shape4 = out_shape * 8
-    scratch.layer1_rn = nn.Conv2d(in_shape[0], out_shape1, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
-    scratch.layer2_rn = nn.Conv2d(in_shape[1], out_shape2, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
-    scratch.layer3_rn = nn.Conv2d(in_shape[2], out_shape3, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
-    scratch.layer4_rn = nn.Conv2d(in_shape[3], out_shape4, kernel_size=3, stride=1, padding=1, bias=False, groups=groups)
+    scratch.layer1_rn = nn.Conv2d(
+        in_shape[0],
+        out_shape1,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
+    )
+    scratch.layer2_rn = nn.Conv2d(
+        in_shape[1],
+        out_shape2,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
+    )
+    scratch.layer3_rn = nn.Conv2d(
+        in_shape[2],
+        out_shape3,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
+    )
+    scratch.layer4_rn = nn.Conv2d(
+        in_shape[3],
+        out_shape4,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
+    )
     return scratch
 
 
@@ -629,8 +806,24 @@ class ResidualConvUnit(nn.Module):
         super().__init__()
         self.bn = bn
         self.groups = 1
-        self.conv1 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
-        self.conv2 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
+        self.conv1 = nn.Conv2d(
+            features,
+            features,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=True,
+            groups=self.groups,
+        )
+        self.conv2 = nn.Conv2d(
+            features,
+            features,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=True,
+            groups=self.groups,
+        )
         if self.bn:
             self.bn1 = nn.BatchNorm2d(features)
             self.bn2 = nn.BatchNorm2d(features)
@@ -652,7 +845,16 @@ class ResidualConvUnit(nn.Module):
 class FeatureFusionBlock(nn.Module):
     """Feature fusion block."""
 
-    def __init__(self, features, activation, deconv=False, bn=False, expand=False, align_corners=True, size=None):
+    def __init__(
+        self,
+        features,
+        activation,
+        deconv=False,
+        bn=False,
+        expand=False,
+        align_corners=True,
+        size=None,
+    ):
         super().__init__()
         self.deconv = deconv
         self.align_corners = align_corners
@@ -661,7 +863,15 @@ class FeatureFusionBlock(nn.Module):
         out_features = features
         if self.expand:
             out_features = features // 2
-        self.out_conv = nn.Conv2d(features, out_features, kernel_size=1, stride=1, padding=0, bias=True, groups=1)
+        self.out_conv = nn.Conv2d(
+            features,
+            out_features,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=True,
+            groups=1,
+        )
         self.resConfUnit1 = ResidualConvUnit(features, activation, bn)
         self.resConfUnit2 = ResidualConvUnit(features, activation, bn)
         self.skip_add = nn.quantized.FloatFunctional()
@@ -679,44 +889,81 @@ class FeatureFusionBlock(nn.Module):
             modifier = {"size": self.size}
         else:
             modifier = {"size": size}
-        output = nn.functional.interpolate(output, **modifier, mode="bilinear", align_corners=self.align_corners)
+        output = nn.functional.interpolate(
+            output, **modifier, mode="bilinear", align_corners=self.align_corners
+        )
         output = self.out_conv(output)
         return output
 
 
 def _make_fusion_block(features, use_bn, size=None):
     return FeatureFusionBlock(
-        features, nn.ReLU(False), deconv=False, bn=use_bn,
-        expand=False, align_corners=True, size=size,
+        features,
+        nn.ReLU(False),
+        deconv=False,
+        bn=use_bn,
+        expand=False,
+        align_corners=True,
+        size=size,
     )
 
 
 class DPTHead(nn.Module):
     """Dense Prediction Transformer head for monocular depth estimation."""
 
-    def __init__(self, in_channels, features=256, use_bn=False,
-                 out_channels=None, use_clstoken=False):
+    def __init__(
+        self,
+        in_channels,
+        features=256,
+        use_bn=False,
+        out_channels=None,
+        use_clstoken=False,
+    ):
         super().__init__()
         if out_channels is None:
             out_channels = [256, 512, 1024, 1024]
 
         self.use_clstoken = use_clstoken
 
-        self.projects = nn.ModuleList([
-            nn.Conv2d(in_channels=in_channels, out_channels=oc,
-                      kernel_size=1, stride=1, padding=0)
-            for oc in out_channels
-        ])
+        self.projects = nn.ModuleList(
+            [
+                nn.Conv2d(
+                    in_channels=in_channels,
+                    out_channels=oc,
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                )
+                for oc in out_channels
+            ]
+        )
 
-        self.resize_layers = nn.ModuleList([
-            nn.ConvTranspose2d(in_channels=out_channels[0], out_channels=out_channels[0],
-                               kernel_size=4, stride=4, padding=0),
-            nn.ConvTranspose2d(in_channels=out_channels[1], out_channels=out_channels[1],
-                               kernel_size=2, stride=2, padding=0),
-            nn.Identity(),
-            nn.Conv2d(in_channels=out_channels[3], out_channels=out_channels[3],
-                      kernel_size=3, stride=2, padding=1),
-        ])
+        self.resize_layers = nn.ModuleList(
+            [
+                nn.ConvTranspose2d(
+                    in_channels=out_channels[0],
+                    out_channels=out_channels[0],
+                    kernel_size=4,
+                    stride=4,
+                    padding=0,
+                ),
+                nn.ConvTranspose2d(
+                    in_channels=out_channels[1],
+                    out_channels=out_channels[1],
+                    kernel_size=2,
+                    stride=2,
+                    padding=0,
+                ),
+                nn.Identity(),
+                nn.Conv2d(
+                    in_channels=out_channels[3],
+                    out_channels=out_channels[3],
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                ),
+            ]
+        )
 
         if use_clstoken:
             self.readout_projects = nn.ModuleList()
@@ -738,7 +985,13 @@ class DPTHead(nn.Module):
             head_features_1, head_features_1 // 2, kernel_size=3, stride=1, padding=1
         )
         self.scratch.output_conv2 = nn.Sequential(
-            nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                head_features_1 // 2,
+                head_features_2,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
             nn.ReLU(True),
             nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0),
             nn.ReLU(True),
@@ -771,7 +1024,12 @@ class DPTHead(nn.Module):
         path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
 
         out = self.scratch.output_conv1(path_1)
-        out = F.interpolate(out, (int(patch_h * 14), int(patch_w * 14)), mode="bilinear", align_corners=True)
+        out = F.interpolate(
+            out,
+            (int(patch_h * 14), int(patch_w * 14)),
+            mode="bilinear",
+            align_corners=True,
+        )
         out = self.scratch.output_conv2(out)
         return out
 
@@ -784,8 +1042,15 @@ class DPTHead(nn.Module):
 class _DepthAnythingV2Net(nn.Module):
     """Internal composed model: DINOv2 backbone + DPT head."""
 
-    def __init__(self, encoder="vitl", features=256, out_channels=None,
-                 use_bn=False, use_clstoken=False, intermediate_layer_idx=None):
+    def __init__(
+        self,
+        encoder="vitl",
+        features=256,
+        out_channels=None,
+        use_bn=False,
+        use_clstoken=False,
+        intermediate_layer_idx=None,
+    ):
         super().__init__()
         if out_channels is None:
             out_channels = [256, 512, 1024, 1024]
@@ -800,8 +1065,11 @@ class _DepthAnythingV2Net(nn.Module):
         self.encoder = encoder
         self.pretrained = build_dinov2_backbone(encoder)
         self.depth_head = DPTHead(
-            self.pretrained.embed_dim, features, use_bn,
-            out_channels=out_channels, use_clstoken=use_clstoken,
+            self.pretrained.embed_dim,
+            features,
+            use_bn,
+            out_channels=out_channels,
+            use_clstoken=use_clstoken,
         )
 
     def forward(self, x):
@@ -869,7 +1137,6 @@ class DepthAnythingV2Model(BaseDepthModel):
         """
         import cv2
         import numpy as np
-        from torchvision.transforms import Compose
 
         h, w = raw_image.shape[:2]
         image = cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB) / 255.0
@@ -894,7 +1161,9 @@ class DepthAnythingV2Model(BaseDepthModel):
         tensor = tensor.to(device)
 
         depth = self.forward(tensor)
-        depth = F.interpolate(depth[:, None], (h, w), mode="bilinear", align_corners=True)[0, 0]
+        depth = F.interpolate(
+            depth[:, None], (h, w), mode="bilinear", align_corners=True
+        )[0, 0]
         return depth.cpu().numpy()
 
     @classmethod

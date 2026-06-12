@@ -14,9 +14,17 @@ from .metrics import Evaluator, align_least_squares
 
 logger = logging.getLogger(__name__)
 
-_METRIC_HEADERS = ["abs_rel", "sq_rel", "rmse", "rmse_log", "delta1", "delta2", "delta3"]
+_METRIC_HEADERS = [
+    "abs_rel",
+    "sq_rel",
+    "rmse",
+    "rmse_log",
+    "delta1",
+    "delta2",
+    "delta3",
+]
 _DATASET_ALIASES = {
-    "nyu":   "nyu_depth_v2",
+    "nyu": "nyu_depth_v2",
     "kitti": "kitti_eigen",
 }
 
@@ -24,6 +32,7 @@ _DATASET_ALIASES = {
 # ---------------------------------------------------------------------------
 # Internal wrapper dataset
 # ---------------------------------------------------------------------------
+
 
 class _EvalDataset(Dataset):
     """Wraps a BaseDepthDataset and applies model-specific preprocessing.
@@ -46,22 +55,19 @@ class _EvalDataset(Dataset):
 
         # Model input — properly resized and normalised
         inputs = self.processor.preprocess(image_np)
-        pixel_values = inputs["pixel_values"][0]          # (3, H_m, W_m)
+        pixel_values = inputs["pixel_values"][0]  # (3, H_m, W_m)
         orig_h, orig_w = inputs["original_sizes"][0]
 
         # Ground-truth tensors at native resolution
-        depth_t = torch.from_numpy(depth_np).float()       # (H, W)
-        valid_mask = (
-            (depth_t > self.base.min_depth)
-            & (depth_t < self.base.max_depth)
-        )
+        depth_t = torch.from_numpy(depth_np).float()  # (H, W)
+        valid_mask = (depth_t > self.base.min_depth) & (depth_t < self.base.max_depth)
 
         return {
-            "pixel_values": pixel_values,         # (3, H_m, W_m)
-            "depth_map":    depth_t,              # (H, W)
-            "valid_mask":   valid_mask,           # (H, W) bool
-            "orig_h":       orig_h,
-            "orig_w":       orig_w,
+            "pixel_values": pixel_values,  # (3, H_m, W_m)
+            "depth_map": depth_t,  # (H, W)
+            "valid_mask": valid_mask,  # (H, W) bool
+            "orig_h": orig_h,
+            "orig_w": orig_w,
         }
 
 
@@ -70,20 +76,21 @@ def _collate(batch: list) -> dict:
     pixel_values = torch.stack([b["pixel_values"] for b in batch])
     orig_h = [b["orig_h"] for b in batch]
     orig_w = [b["orig_w"] for b in batch]
-    depth_maps   = [b["depth_map"]   for b in batch]
-    valid_masks  = [b["valid_mask"]  for b in batch]
+    depth_maps = [b["depth_map"] for b in batch]
+    valid_masks = [b["valid_mask"] for b in batch]
     return {
         "pixel_values": pixel_values,
-        "depth_maps":   depth_maps,
-        "valid_masks":  valid_masks,
-        "orig_h":       orig_h,
-        "orig_w":       orig_w,
+        "depth_maps": depth_maps,
+        "valid_masks": valid_masks,
+        "orig_h": orig_h,
+        "orig_w": orig_w,
     }
 
 
 # ---------------------------------------------------------------------------
 # evaluate()
 # ---------------------------------------------------------------------------
+
 
 def evaluate(
     model: Union[str, "BaseDepthModel"],  # noqa: F821
@@ -135,7 +142,6 @@ def evaluate(
     from depth_estimation.models.auto.processing_auto import AutoProcessor
     from depth_estimation.modeling_utils import _auto_detect_device
     from depth_estimation.data import load_dataset
-    from depth_estimation.data.base_dataset import BaseDepthDataset
 
     # ------------------------------------------------------------------
     # Resolve device
@@ -174,7 +180,7 @@ def evaluate(
 
     if num_samples is not None:
         # Wrap with a Subset
-        from torch.utils.data import Subset
+
         indices = list(range(min(num_samples, len(base_ds))))
         base_ds = _SubsetWrapper(base_ds, indices)
 
@@ -196,20 +202,21 @@ def evaluate(
 
     try:
         from tqdm import tqdm
-        iterable = tqdm(loader, desc=f"Evaluating", unit="batch", leave=True)
+
+        iterable = tqdm(loader, desc="Evaluating", unit="batch", leave=True)
     except ImportError:
         iterable = loader
 
     with torch.no_grad():
         for batch in iterable:
             pixel_values = batch["pixel_values"].to(device)
-            depth_maps   = batch["depth_maps"]    # list of (H_orig, W_orig) tensors
-            valid_masks  = batch["valid_masks"]
-            orig_hs      = batch["orig_h"]
-            orig_ws      = batch["orig_w"]
+            depth_maps = batch["depth_maps"]  # list of (H_orig, W_orig) tensors
+            valid_masks = batch["valid_masks"]
+            orig_hs = batch["orig_h"]
+            orig_ws = batch["orig_w"]
 
             # Forward pass
-            raw_preds = loaded_model(pixel_values)   # (B, H_m, W_m) or (B, 1, H_m, W_m)
+            raw_preds = loaded_model(pixel_values)  # (B, H_m, W_m) or (B, 1, H_m, W_m)
             if raw_preds.dim() == 4:
                 raw_preds = raw_preds.squeeze(1)
 
@@ -225,13 +232,13 @@ def evaluate(
                     align_corners=False,
                 )[0, 0]  # (H_orig, W_orig)
 
-                gt   = depth_maps[b].to(device)    # (H_orig, W_orig)
-                mask = valid_masks[b].to(device)   # (H_orig, W_orig) bool
+                gt = depth_maps[b].to(device)  # (H_orig, W_orig)
+                mask = valid_masks[b].to(device)  # (H_orig, W_orig) bool
 
                 # Align relative predictions to GT scale
                 if do_align and mask.sum() >= 2:
                     pred_np = pred_resized.cpu().numpy()
-                    gt_np   = gt.cpu().numpy()
+                    gt_np = gt.cpu().numpy()
                     mask_np = mask.cpu().numpy()
                     scale, shift = align_least_squares(pred_np, gt_np, mask_np)
                     pred_resized = (scale * pred_resized + shift).clamp(min=1e-6)
@@ -251,6 +258,7 @@ def evaluate(
 # ---------------------------------------------------------------------------
 # compare()
 # ---------------------------------------------------------------------------
+
 
 def compare(
     models: List[str],
@@ -295,7 +303,6 @@ def compare(
         )
     """
     from depth_estimation.data import load_dataset
-    from depth_estimation.data.base_dataset import BaseDepthDataset
 
     # Load dataset once and reuse across models
     if isinstance(dataset, str):
@@ -341,6 +348,7 @@ def compare(
 # Table formatting
 # ---------------------------------------------------------------------------
 
+
 def _print_table(results: Dict[str, Dict[str, float]]) -> None:
     """Print a formatted comparison table to stdout."""
     lower = ["abs_rel", "sq_rel", "rmse", "rmse_log"]
@@ -357,14 +365,20 @@ def _print_table(results: Dict[str, Dict[str, float]]) -> None:
     print(sep)
     print(header)
     # Direction hint row
-    hint = f"{'':>{col_w}}" + "".join(f"{'(↓)':>{num_w}}" if h in lower else f"{'(↑)':>{num_w}}" for h in headers)
+    hint = f"{'':>{col_w}}" + "".join(
+        f"{'(↓)':>{num_w}}" if h in lower else f"{'(↑)':>{num_w}}" for h in headers
+    )
     print(hint)
     print(sep)
 
     # Find best value per metric
     best: Dict[str, float] = {}
     for h in headers:
-        vals = [r.get(h, float("nan")) for r in results.values() if not np.isnan(r.get(h, float("nan")))]
+        vals = [
+            r.get(h, float("nan"))
+            for r in results.values()
+            if not np.isnan(r.get(h, float("nan")))
+        ]
         if vals:
             best[h] = min(vals) if h in lower else max(vals)
 
@@ -391,6 +405,7 @@ def _print_table(results: Dict[str, Dict[str, float]]) -> None:
 # ---------------------------------------------------------------------------
 # Subset helper
 # ---------------------------------------------------------------------------
+
 
 class _SubsetWrapper:
     """Lightweight subset that preserves BaseDepthDataset interface."""

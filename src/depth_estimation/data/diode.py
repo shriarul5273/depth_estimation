@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 _URLS = {
     "train": "https://diode-dataset.s3.amazonaws.com/train.tar.gz",
-    "val":   "https://diode-dataset.s3.amazonaws.com/val.tar.gz",
+    "val": "https://diode-dataset.s3.amazonaws.com/val.tar.gz",
 }
 # "test" uses the val archive (no public GT for the test set)
 _ARCHIVE_MAP = {"train": "train", "val": "val", "test": "val"}
@@ -141,9 +141,7 @@ class DIODEDataset(BaseDepthDataset):
                 "Pass download=True or extract the archive manually."
             )
 
-        scene_types = (
-            _SCENE_TYPES if self.scene_type == "all" else (self.scene_type,)
-        )
+        scene_types = _SCENE_TYPES if self.scene_type == "all" else (self.scene_type,)
 
         samples: List[dict] = []
         for stype in scene_types:

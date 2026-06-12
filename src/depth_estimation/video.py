@@ -8,13 +8,12 @@ process_video — read a video, run depth estimation, write output video
 import glob as _glob
 import logging
 from pathlib import Path
-from typing import Generator, Iterator, Optional, Tuple, Union
+from typing import Iterator, Optional, Tuple, Union
 
 import cv2
 import numpy as np
 from tqdm import tqdm
 
-from .output import DepthOutput
 from .processing_utils import DepthProcessor
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,9 @@ class VideoStream:
             if suffix in _VIDEO_EXTENSIONS:
                 self._cap = cv2.VideoCapture(self.source)
                 if not self._cap.isOpened():
-                    raise FileNotFoundError(f"Could not open video file: {self.source!r}")
+                    raise FileNotFoundError(
+                        f"Could not open video file: {self.source!r}"
+                    )
                 return
 
             # Must contain a glob wildcard to be treated as a frame pattern
@@ -96,7 +97,9 @@ class VideoStream:
                 )
             matched = sorted(_glob.glob(self.source))
             if not matched:
-                raise FileNotFoundError(f"No files matched glob pattern: {self.source!r}")
+                raise FileNotFoundError(
+                    f"No files matched glob pattern: {self.source!r}"
+                )
             self._frame_paths = matched
             return
 
@@ -207,8 +210,9 @@ def process_video(
         temporal_smoothing: EMA coefficient for depth smoothing (0.0 = disabled).
         batch_size: Number of frames to process per forward pass.
     """
-    stream = VideoStream(input_path, batch_size=batch_size,
-                         temporal_smoothing=temporal_smoothing)
+    stream = VideoStream(
+        input_path, batch_size=batch_size, temporal_smoothing=temporal_smoothing
+    )
 
     src_fps = fps or stream.fps
     total = stream.total_frames

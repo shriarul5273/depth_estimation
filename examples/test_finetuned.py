@@ -136,6 +136,7 @@ def build_dataset(args):
 
     if args.num_samples is not None:
         from torch.utils.data import Subset
+
         ds = Subset(ds, range(min(args.num_samples, len(ds))))
 
     return ds
@@ -161,8 +162,8 @@ def evaluate_model(model, dataset, batch_size, num_workers, device):
     with torch.no_grad():
         for batch in loader:
             pixel_values = batch["pixel_values"].to(device, non_blocking=True)
-            depth_map    = batch["depth_map"].to(device, non_blocking=True)
-            valid_mask   = batch["valid_mask"].to(device, non_blocking=True)
+            depth_map = batch["depth_map"].to(device, non_blocking=True)
+            valid_mask = batch["valid_mask"].to(device, non_blocking=True)
 
             pred = model(pixel_values)
 
@@ -229,7 +230,6 @@ def main():
     # ------------------------------------------------------------------
     # Fine-tuned model
     # ------------------------------------------------------------------
-    import os
     from pathlib import Path
 
     checkpoint_dir = Path(args.checkpoint)
@@ -279,7 +279,7 @@ def main():
     if not args.no_compare and len(results) == 2:
         ft_m, base_m = results[0][1], results[1][1]
         abs_rel_delta = ft_m["abs_rel"] - base_m["abs_rel"]
-        delta1_delta  = ft_m["delta1"]  - base_m["delta1"]
+        delta1_delta = ft_m["delta1"] - base_m["delta1"]
         direction = "better" if abs_rel_delta < 0 else "worse"
         print(
             f"AbsRel change: {abs_rel_delta:+.4f} ({direction} after fine-tuning)\n"

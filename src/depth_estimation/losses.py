@@ -71,7 +71,7 @@ class ScaleInvariantLoss(nn.Module):
                 batch_losses.append(pred.new_zeros(()))
                 continue
             d = diff[b][mask_b]
-            loss_b = (d ** 2).mean() - self.lam * (d.mean() ** 2)
+            loss_b = (d**2).mean() - self.lam * (d.mean() ** 2)
             batch_losses.append(loss_b)
 
         return torch.stack(batch_losses).mean()
@@ -186,7 +186,11 @@ class BerHuLoss(nn.Module):
         l2_region = valid_err[valid_err > c]
 
         loss_l1 = l1_region.sum() if l1_region.numel() > 0 else pred.new_zeros(())
-        loss_l2 = ((l2_region ** 2 + c ** 2) / (2.0 * c)).sum() if l2_region.numel() > 0 else pred.new_zeros(())
+        loss_l2 = (
+            ((l2_region**2 + c**2) / (2.0 * c)).sum()
+            if l2_region.numel() > 0
+            else pred.new_zeros(())
+        )
 
         n = valid_err.numel()
         return (loss_l1 + loss_l2) / n

@@ -27,75 +27,95 @@ from .models import omnivggt
 from .models import vggt
 
 
-def load_dataset(name, split="train", root=None, download=True, transform=None, **kwargs):
+def load_dataset(
+    name, split="train", root=None, download=True, transform=None, **kwargs
+):
     """Load a depth dataset by name. See :mod:`depth_estimation.data` for details."""
     from .data import load_dataset as _load
-    return _load(name, split=split, root=root, download=download, transform=transform, **kwargs)
+
+    return _load(
+        name, split=split, root=root, download=download, transform=transform, **kwargs
+    )
 
 
 def __getattr__(name):
     """Defer torch-heavy imports until first use."""
     if name == "BaseDepthModel":
         from .modeling_utils import BaseDepthModel
+
         globals()["BaseDepthModel"] = BaseDepthModel
         return BaseDepthModel
     if name == "DepthProcessor":
         from .processing_utils import DepthProcessor
+
         globals()["DepthProcessor"] = DepthProcessor
         return DepthProcessor
     if name == "DepthPipeline":
         from .pipeline_utils import DepthPipeline
+
         globals()["DepthPipeline"] = DepthPipeline
         return DepthPipeline
     if name == "pipeline":
         from .pipeline_utils import pipeline
+
         globals()["pipeline"] = pipeline
         return pipeline
     # Training symbols
     if name == "DepthTrainer":
         from .trainer import DepthTrainer
+
         globals()["DepthTrainer"] = DepthTrainer
         return DepthTrainer
     if name == "DepthTrainingArguments":
         from .training_args import DepthTrainingArguments
+
         globals()["DepthTrainingArguments"] = DepthTrainingArguments
         return DepthTrainingArguments
     if name == "CombinedDepthLoss":
         from .losses import CombinedDepthLoss
+
         globals()["CombinedDepthLoss"] = CombinedDepthLoss
         return CombinedDepthLoss
     if name == "ScaleInvariantLoss":
         from .losses import ScaleInvariantLoss
+
         globals()["ScaleInvariantLoss"] = ScaleInvariantLoss
         return ScaleInvariantLoss
     if name == "GradientLoss":
         from .losses import GradientLoss
+
         globals()["GradientLoss"] = GradientLoss
         return GradientLoss
     if name == "BerHuLoss":
         from .losses import BerHuLoss
+
         globals()["BerHuLoss"] = BerHuLoss
         return BerHuLoss
     if name == "get_train_transforms":
         from .data.transforms import get_train_transforms
+
         globals()["get_train_transforms"] = get_train_transforms
         return get_train_transforms
     if name == "get_val_transforms":
         from .data.transforms import get_val_transforms
+
         globals()["get_val_transforms"] = get_val_transforms
         return get_val_transforms
     # Video & streaming
     if name == "VideoStream":
         from .video import VideoStream
+
         globals()["VideoStream"] = VideoStream
         return VideoStream
     if name == "process_video":
         from .video import process_video
+
         globals()["process_video"] = process_video
         return process_video
     # Visualization toolkit
     if name == "viz":
         from . import viz
+
         globals()["viz"] = viz
         return viz
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

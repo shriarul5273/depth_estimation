@@ -77,6 +77,7 @@ DEFAULT_MODEL = "depth-anything-v2-vitb"
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def parse_args():
     p = argparse.ArgumentParser(
         description="Evaluate depth models on the KITTI Eigen test split.",
@@ -84,10 +85,11 @@ def parse_args():
         epilog=__doc__,
     )
     p.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default=DEFAULT_MODEL,
         help=f"Model variant ID to evaluate (default: {DEFAULT_MODEL}). "
-             "Ignored when --compare is used.",
+        "Ignored when --compare is used.",
     )
     p.add_argument(
         "--compare",
@@ -99,7 +101,7 @@ def parse_args():
         required=True,
         metavar="DIR",
         help="Path to KITTI raw data root. Required — KITTI cannot be "
-             "auto-downloaded. See the module docstring for layout details.",
+        "auto-downloaded. See the module docstring for layout details.",
     )
     p.add_argument(
         "--split",
@@ -112,7 +114,7 @@ def parse_args():
         default=None,
         metavar="FILE",
         help="Path to a custom split .txt file. Auto-resolved from "
-             "--dataset-root if not provided.",
+        "--dataset-root if not provided.",
     )
     p.add_argument(
         "--num-samples",
@@ -146,7 +148,8 @@ def parse_args():
         help="Disable per-sample least-squares alignment for relative models.",
     )
     p.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default=None,
         metavar="FILE",
         help="Save results to a JSON file.",
@@ -169,7 +172,7 @@ def evaluate_single(args) -> dict:
     model_id = args.model
 
     print(f"\n{'=' * 65}")
-    print(f"  KITTI Eigen Evaluation")
+    print("  KITTI Eigen Evaluation")
     print(f"  Model:   {model_id}")
     print(f"  Split:   {args.split} ({n_test.get(args.split, '?')} images)")
     print(f"  Samples: {args.num_samples or 'all'}")
@@ -198,13 +201,13 @@ def evaluate_single(args) -> dict:
     print(f"  {'Metric':<14}  {'Value':>10}  {'Direction'}")
     print(f"  {'──────':<14}  {'─────':>10}  {'─────────'}")
     for metric, direction in [
-        ("abs_rel",  "lower ↓"),
-        ("sq_rel",   "lower ↓"),
-        ("rmse",     "lower ↓"),
+        ("abs_rel", "lower ↓"),
+        ("sq_rel", "lower ↓"),
+        ("rmse", "lower ↓"),
         ("rmse_log", "lower ↓"),
-        ("delta1",   "higher ↑"),
-        ("delta2",   "higher ↑"),
-        ("delta3",   "higher ↑"),
+        ("delta1", "higher ↑"),
+        ("delta2", "higher ↑"),
+        ("delta3", "higher ↑"),
     ]:
         print(f"  {metric:<14}  {results[metric]:>10.4f}  {direction}")
     print(f"{'─' * 65}")
@@ -223,7 +226,7 @@ def evaluate_compare(args) -> dict:
 
     n_test = {"train": "~23 000", "val": "~4 000", "test": "697"}
     print(f"\n{'=' * 65}")
-    print(f"  KITTI Eigen — Model Comparison")
+    print("  KITTI Eigen — Model Comparison")
     print(f"  Split:   {args.split} ({n_test.get(args.split, '?')} images)")
     print(f"  Models:  {len(COMPARE_MODELS)}")
     print(f"  Samples: {args.num_samples or 'all'}")
@@ -277,7 +280,9 @@ def main():
         print("  2. Download raw data sequences from:")
         print("     https://www.cvlibs.net/datasets/kitti/raw_data.php")
         print("  3. Download improved GT depth:")
-        print("     https://s3.eu-central-1.amazonaws.com/avg-kitti/data_depth_annotated.zip")
+        print(
+            "     https://s3.eu-central-1.amazonaws.com/avg-kitti/data_depth_annotated.zip"
+        )
         print("  4. Extract into your dataset root and pass it via --dataset-root.")
         sys.exit(1)
 

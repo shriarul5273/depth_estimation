@@ -4,7 +4,7 @@ DepthAnythingV2Config — Configuration for Depth Anything v2 models.
 Inherits from BaseDepthConfig and only overrides default values per variant.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from ...configuration_utils import BaseDepthConfig
 
@@ -83,7 +83,9 @@ class DepthAnythingV2Config(BaseDepthConfig):
             kwargs.setdefault("num_layers", bc["num_layers"])
             features = kwargs.pop("features", bc["features"])
             out_channels = out_channels or bc["out_channels"]
-            intermediate_layer_idx = intermediate_layer_idx or bc["intermediate_layer_idx"]
+            intermediate_layer_idx = (
+                intermediate_layer_idx or bc["intermediate_layer_idx"]
+            )
 
         super().__init__(
             backbone=backbone,

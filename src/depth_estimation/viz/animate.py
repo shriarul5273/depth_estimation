@@ -58,9 +58,12 @@ def animate_3d(
 
     # facecolors must match the number of *quads* (one less than vertices per dim)
     surf = ax.plot_surface(
-        X, Y, Z,
+        X,
+        Y,
+        Z,
         facecolors=colors[:-1, :-1],
-        rstride=1, cstride=1,
+        rstride=1,
+        cstride=1,
         shade=False,
         antialiased=False,
     )
@@ -76,9 +79,11 @@ def animate_3d(
 
     if ext == ".gif":
         from matplotlib.animation import PillowWriter
+
         anim.save(output_path, writer=PillowWriter(fps=fps))
     else:
         from matplotlib.animation import FFMpegWriter
+
         anim.save(output_path, writer=FFMpegWriter(fps=fps))
 
     plt.close(fig)

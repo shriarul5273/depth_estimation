@@ -83,11 +83,17 @@ def compare_depths(
 
     for i, (res, ax) in enumerate(zip(results, axes)):
         if isinstance(res, DepthOutput):
-            arr = res.colored_depth if res.colored_depth is not None else DepthProcessor._colorize(res.depth, colormap)
+            arr = (
+                res.colored_depth
+                if res.colored_depth is not None
+                else DepthProcessor._colorize(res.depth, colormap)
+            )
         elif isinstance(res, np.ndarray):
             arr = DepthProcessor._colorize(res, colormap)
         else:
-            raise TypeError(f"results[{i}]: expected DepthOutput or np.ndarray, got {type(res)}")
+            raise TypeError(
+                f"results[{i}]: expected DepthOutput or np.ndarray, got {type(res)}"
+            )
 
         ax.imshow(arr)
         ax.axis("off")

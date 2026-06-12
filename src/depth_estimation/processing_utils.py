@@ -201,6 +201,7 @@ class DepthProcessor:
     def _load_from_url(url: str) -> np.ndarray:
         """Load image from a URL."""
         import urllib.request
+
         with urllib.request.urlopen(url) as response:
             data = response.read()
         img = Image.open(io.BytesIO(data)).convert("RGB")
@@ -229,9 +230,7 @@ class DepthProcessor:
         new_h = max(new_h, self.patch_size)
         new_w = max(new_w, self.patch_size)
 
-        resized = cv2.resize(
-            image_rgb, (new_w, new_h), interpolation=cv2.INTER_CUBIC
-        )
+        resized = cv2.resize(image_rgb, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
 
         # Normalize to [0, 1] then apply mean/std
         img = resized.astype(np.float32) / 255.0

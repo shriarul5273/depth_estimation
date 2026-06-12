@@ -6,6 +6,7 @@ from ...registry import MODEL_REGISTRY
 
 def _load_model_cls():
     from .modeling_zoedepth import ZoeDepthModel
+
     return ZoeDepthModel
 
 
@@ -20,6 +21,7 @@ MODEL_REGISTRY.register(
 def __getattr__(name):
     if name == "ZoeDepthModel":
         from .modeling_zoedepth import ZoeDepthModel
+
         return ZoeDepthModel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

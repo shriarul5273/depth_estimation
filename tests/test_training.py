@@ -7,7 +7,6 @@ DepthTrainer: smoke-tested with a tiny mock nn.Module — no model weights downl
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 import pytest
@@ -21,6 +20,7 @@ from depth_estimation.training_args import DepthTrainingArguments
 # ---------------------------------------------------------------------------
 # DepthTrainingArguments
 # ---------------------------------------------------------------------------
+
 
 class TestDepthTrainingArguments:
     def test_defaults(self):
@@ -53,8 +53,10 @@ class TestDepthTrainingArguments:
         args = DepthTrainingArguments(output_dir="/tmp/x", lr_scheduler=scheduler)
         assert args.lr_scheduler == scheduler
 
-    @pytest.mark.parametrize("metric", ["abs_rel", "sq_rel", "rmse", "rmse_log",
-                                         "delta1", "delta2", "delta3"])
+    @pytest.mark.parametrize(
+        "metric",
+        ["abs_rel", "sq_rel", "rmse", "rmse_log", "delta1", "delta2", "delta3"],
+    )
     def test_all_valid_metrics_accepted(self, metric):
         args = DepthTrainingArguments(output_dir="/tmp/x", eval_metric=metric)
         assert args.eval_metric == metric
@@ -104,6 +106,7 @@ class TestDepthTrainingArguments:
 # DepthTrainer smoke tests (tiny mock model, no weights downloaded)
 # ---------------------------------------------------------------------------
 
+
 class _TinyDepthDataset(Dataset):
     """In-memory dataset: N samples of fixed small tensors."""
 
@@ -130,7 +133,7 @@ class _TinyDepthModel(nn.Module):
     def __init__(self, h=16, w=16):
         super().__init__()
         self.backbone = nn.Sequential(nn.Conv2d(3, 8, 3, padding=1), nn.ReLU())
-        self.decoder  = nn.Conv2d(8, 1, 1)
+        self.decoder = nn.Conv2d(8, 1, 1)
         self._h = h
         self._w = w
 
@@ -152,15 +155,25 @@ class _TinyDepthModel(nn.Module):
     def get_parameter_groups(self, backbone_lr_scale=0.1):
         bb_ids = {id(p) for p in self.backbone.parameters()}
         return [
-            {"params": [p for p in self.parameters() if id(p) not in bb_ids and p.requires_grad],
-             "lr_scale": 1.0},
-            {"params": [p for p in self.parameters() if id(p) in bb_ids and p.requires_grad],
-             "lr_scale": backbone_lr_scale},
+            {
+                "params": [
+                    p
+                    for p in self.parameters()
+                    if id(p) not in bb_ids and p.requires_grad
+                ],
+                "lr_scale": 1.0,
+            },
+            {
+                "params": [
+                    p for p in self.parameters() if id(p) in bb_ids and p.requires_grad
+                ],
+                "lr_scale": backbone_lr_scale,
+            },
         ]
 
     @property
     def config(self):
-        return None   # no config.to_dict() needed for these tests
+        return None  # no config.to_dict() needed for these tests
 
 
 class TestDepthTrainer:
@@ -169,7 +182,7 @@ class TestDepthTrainer:
 
         model = _TinyDepthModel()
         train_ds = _TinyDepthDataset(n=8)
-        val_ds   = _TinyDepthDataset(n=4)
+        val_ds = _TinyDepthDataset(n=4)
 
         base = dict(
             output_dir=str(tmp_path / "ckpts"),
@@ -275,7 +288,7 @@ class TestDepthTrainer:
             train_dataset=_TinyDepthDataset(n=8),
             eval_dataset=None,
         )
-        trainer.train()   # must not raise without eval dataset
+        trainer.train()  # must not raise without eval dataset
 
     def test_no_trainable_params_raises(self, tmp_path):
         from depth_estimation.trainer import DepthTrainer

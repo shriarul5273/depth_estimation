@@ -3,8 +3,12 @@
 import pytest
 import torch
 
-from depth_estimation.models.depth_anything_v2.configuration_depth_anything_v2 import DepthAnythingV2Config
-from depth_estimation.models.depth_anything_v2.modeling_depth_anything_v2 import DepthAnythingV2Model
+from depth_estimation.models.depth_anything_v2.configuration_depth_anything_v2 import (
+    DepthAnythingV2Config,
+)
+from depth_estimation.models.depth_anything_v2.modeling_depth_anything_v2 import (
+    DepthAnythingV2Model,
+)
 
 
 class TestDepthAnythingV2Model:
@@ -51,8 +55,13 @@ class TestDepthAnythingV2Model:
 class TestDepthAnythingV1ModelSkip:
     @pytest.mark.skip(reason="Requires torch.hub DINOv2 download")
     def test_instantiation(self):
-        from depth_estimation.models.depth_anything_v1.configuration_depth_anything_v1 import DepthAnythingV1Config
-        from depth_estimation.models.depth_anything_v1.modeling_depth_anything_v1 import DepthAnythingV1Model
+        from depth_estimation.models.depth_anything_v1.configuration_depth_anything_v1 import (
+            DepthAnythingV1Config,
+        )
+        from depth_estimation.models.depth_anything_v1.modeling_depth_anything_v1 import (
+            DepthAnythingV1Model,
+        )
+
         config = DepthAnythingV1Config(backbone="vits")
         model = DepthAnythingV1Model(config)
         assert model.config.model_type == "depth-anything-v1"

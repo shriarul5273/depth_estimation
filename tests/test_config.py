@@ -20,15 +20,12 @@ from depth_estimation.models.zoedepth.configuration_zoedepth import (
 )
 from depth_estimation.models.midas.configuration_midas import (
     MiDaSConfig,
-    _MIDAS_VARIANT_MAP,
 )
 from depth_estimation.models.depth_pro.configuration_depth_pro import (
     DepthProConfig,
-    _DEPTHPRO_VARIANT_MAP,
 )
 from depth_estimation.models.pixel_perfect_depth.configuration_ppd import (
     PixelPerfectDepthConfig,
-    _PPD_VARIANT_MAP,
 )
 from depth_estimation.models.moge.configuration_moge import (
     MoGeConfig,
@@ -109,9 +106,14 @@ class TestDepthAnythingV2Config:
         config = DepthAnythingV2Config()
         assert config.model_type == "depth-anything-v2"
 
-    @pytest.mark.parametrize("backbone,expected_features", [
-        ("vits", 64), ("vitb", 128), ("vitl", 256),
-    ])
+    @pytest.mark.parametrize(
+        "backbone,expected_features",
+        [
+            ("vits", 64),
+            ("vitb", 128),
+            ("vitl", 256),
+        ],
+    )
     def test_backbone_defaults(self, backbone, expected_features):
         config = DepthAnythingV2Config(backbone=backbone)
         assert config.features == expected_features
@@ -170,11 +172,14 @@ class TestMiDaSConfig:
         config = MiDaSConfig()
         assert config.model_type == "midas"
 
-    @pytest.mark.parametrize("variant_id,expected_hf_id", [
-        ("midas-dpt-large", "Intel/dpt-large"),
-        ("midas-dpt-hybrid", "Intel/dpt-hybrid-midas"),
-        ("midas-beit-large", "Intel/dpt-beit-large-512"),
-    ])
+    @pytest.mark.parametrize(
+        "variant_id,expected_hf_id",
+        [
+            ("midas-dpt-large", "Intel/dpt-large"),
+            ("midas-dpt-hybrid", "Intel/dpt-hybrid-midas"),
+            ("midas-beit-large", "Intel/dpt-beit-large-512"),
+        ],
+    )
     def test_from_variant(self, variant_id, expected_hf_id):
         config = MiDaSConfig.from_variant(variant_id)
         assert config.hf_model_id == expected_hf_id
@@ -208,7 +213,6 @@ class TestPixelPerfectDepthConfig:
         assert config.sampling_steps == 10
 
 
-
 class TestMoGeConfig:
     def test_model_type(self):
         config = MoGeConfig()
@@ -223,20 +227,26 @@ class TestMoGeConfig:
         with pytest.raises(ValueError):
             MoGeConfig.from_variant("nonexistent-moge")
 
-    @pytest.mark.parametrize("variant_id,expected_metric", [
-        ("moge-v1", False),
-        ("moge-v2-vitl", True),
-        ("moge-v2-vits-normal", True),
-    ])
+    @pytest.mark.parametrize(
+        "variant_id,expected_metric",
+        [
+            ("moge-v1", False),
+            ("moge-v2-vitl", True),
+            ("moge-v2-vits-normal", True),
+        ],
+    )
     def test_is_metric(self, variant_id, expected_metric):
         config = MoGeConfig.from_variant(variant_id)
         assert config.is_metric is expected_metric
 
-    @pytest.mark.parametrize("variant_id,expected_backbone", [
-        ("moge-v1", "vitl"),
-        ("moge-v2-vitb-normal", "vitb"),
-        ("moge-v2-vits-normal", "vits"),
-    ])
+    @pytest.mark.parametrize(
+        "variant_id,expected_backbone",
+        [
+            ("moge-v1", "vitl"),
+            ("moge-v2-vitb-normal", "vitb"),
+            ("moge-v2-vits-normal", "vits"),
+        ],
+    )
     def test_backbone(self, variant_id, expected_backbone):
         config = MoGeConfig.from_variant(variant_id)
         assert config.backbone == expected_backbone
@@ -267,7 +277,10 @@ class TestVGGTConfig:
 
     def test_hub_repo_ids(self):
         assert VGGTConfig.from_variant("vggt").hub_repo_id == "facebook/VGGT-1B"
-        assert VGGTConfig.from_variant("vggt-commercial").hub_repo_id == "facebook/VGGT-1B-Commercial"
+        assert (
+            VGGTConfig.from_variant("vggt-commercial").hub_repo_id
+            == "facebook/VGGT-1B-Commercial"
+        )
 
     def test_backbone(self):
         config = VGGTConfig.from_variant("vggt")
@@ -299,16 +312,25 @@ class TestOmniVGGTConfig:
 
 class TestMarigoldDCConfig:
     def test_model_type(self):
-        from depth_estimation.models.marigold_dc.configuration_marigold_dc import MarigoldDCConfig
+        from depth_estimation.models.marigold_dc.configuration_marigold_dc import (
+            MarigoldDCConfig,
+        )
+
         config = MarigoldDCConfig()
         assert config.model_type == "marigold-dc"
 
     def test_from_variant(self):
-        from depth_estimation.models.marigold_dc.configuration_marigold_dc import MarigoldDCConfig
+        from depth_estimation.models.marigold_dc.configuration_marigold_dc import (
+            MarigoldDCConfig,
+        )
+
         config = MarigoldDCConfig.from_variant("marigold-dc")
         assert config.hub_model_id == "prs-eth/marigold-depth-v1-0"
 
     def test_inference_steps(self):
-        from depth_estimation.models.marigold_dc.configuration_marigold_dc import MarigoldDCConfig
+        from depth_estimation.models.marigold_dc.configuration_marigold_dc import (
+            MarigoldDCConfig,
+        )
+
         config = MarigoldDCConfig(num_inference_steps=10)
         assert config.num_inference_steps == 10

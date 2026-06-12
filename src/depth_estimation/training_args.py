@@ -6,9 +6,8 @@ Serialisable to/from JSON for reproducibility.
 
 import dataclasses
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -122,8 +121,13 @@ class DepthTrainingArguments:
 
     _VALID_SCHEDULERS = ("cosine", "linear", "step", "plateau")
     _VALID_METRICS = (
-        "abs_rel", "sq_rel", "rmse", "rmse_log",
-        "delta1", "delta2", "delta3",
+        "abs_rel",
+        "sq_rel",
+        "rmse",
+        "rmse_log",
+        "delta1",
+        "delta2",
+        "delta3",
     )
 
     def __post_init__(self):
@@ -173,6 +177,9 @@ class DepthTrainingArguments:
 
     def __repr__(self) -> str:
         fields = dataclasses.fields(self)
-        pairs = [f"  {f.name}={getattr(self, f.name)!r}" for f in fields
-                 if not f.name.startswith("_")]
+        pairs = [
+            f"  {f.name}={getattr(self, f.name)!r}"
+            for f in fields
+            if not f.name.startswith("_")
+        ]
         return "DepthTrainingArguments(\n" + ",\n".join(pairs) + "\n)"

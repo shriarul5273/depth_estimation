@@ -87,7 +87,9 @@ def profile_latency(
         loaded_model = loaded_model.half()
 
     dtype = torch.float16 if half else torch.float32
-    dummy = torch.randn(batch_size, 3, input_size, input_size, dtype=dtype, device=device)
+    dummy = torch.randn(
+        batch_size, 3, input_size, input_size, dtype=dtype, device=device
+    )
 
     is_cuda = device.startswith("cuda")
 
@@ -107,7 +109,7 @@ def profile_latency(
 
     memory_mb: Optional[float] = None
     if is_cuda:
-        memory_mb = torch.cuda.max_memory_allocated(device) / (1024 ** 2)
+        memory_mb = torch.cuda.max_memory_allocated(device) / (1024**2)
         torch.cuda.reset_peak_memory_stats(device)
 
     # Timed runs
@@ -128,16 +130,16 @@ def profile_latency(
         return data[idx]
 
     return {
-        "mean_ms":    mean_ms,
-        "std_ms":     statistics.stdev(latencies) if len(latencies) > 1 else 0.0,
-        "min_ms":     latencies_sorted[0],
-        "max_ms":     latencies_sorted[-1],
-        "p50_ms":     _percentile(latencies_sorted, 50),
-        "p95_ms":     _percentile(latencies_sorted, 95),
-        "p99_ms":     _percentile(latencies_sorted, 99),
-        "fps":        batch_size / (mean_ms / 1000.0),
-        "memory_mb":  memory_mb,
-        "model_id":   model_id,
-        "device":     device,
+        "mean_ms": mean_ms,
+        "std_ms": statistics.stdev(latencies) if len(latencies) > 1 else 0.0,
+        "min_ms": latencies_sorted[0],
+        "max_ms": latencies_sorted[-1],
+        "p50_ms": _percentile(latencies_sorted, 50),
+        "p95_ms": _percentile(latencies_sorted, 95),
+        "p99_ms": _percentile(latencies_sorted, 99),
+        "fps": batch_size / (mean_ms / 1000.0),
+        "memory_mb": memory_mb,
+        "model_id": model_id,
+        "device": device,
         "input_shape": (batch_size, 3, input_size, input_size),
     }

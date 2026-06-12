@@ -6,7 +6,6 @@ No network calls are made (auto-download tests are skipped in CI).
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +25,7 @@ from depth_estimation.data.hub import get_cache_dir
 # Helpers / fixtures
 # ---------------------------------------------------------------------------
 
+
 def _write_rgb(path: Path, h: int = 32, w: int = 32) -> np.ndarray:
     """Save a random uint8 RGB image and return the array."""
     arr = np.random.randint(0, 255, (h, w, 3), dtype=np.uint8)
@@ -43,6 +43,7 @@ def _write_depth_npy(path: Path, h: int = 32, w: int = 32) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # BaseDepthDataset — contract tests via a minimal concrete subclass
 # ---------------------------------------------------------------------------
+
 
 class _SyntheticDataset(BaseDepthDataset):
     """Minimal concrete dataset: returns fixed synthetic data."""
@@ -130,6 +131,7 @@ class TestBaseDepthDataset:
 # FolderDataset
 # ---------------------------------------------------------------------------
 
+
 class TestFolderDataset:
     def test_basic_load(self, tmp_path):
         img_dir = tmp_path / "rgb"
@@ -172,7 +174,9 @@ class TestFolderDataset:
         depth_uint16 = np.full((8, 8), 1024, dtype=np.uint16)
         Image.fromarray(depth_uint16).save(dep_dir / "a.png")
 
-        ds = FolderDataset(image_dir=img_dir, depth_dir=dep_dir, depth_scale=256.0, max_depth=10.0)
+        ds = FolderDataset(
+            image_dir=img_dir, depth_dir=dep_dir, depth_scale=256.0, max_depth=10.0
+        )
         sample = ds[0]
         depth_vals = sample["depth_map"][0]
         assert torch.allclose(depth_vals, torch.full_like(depth_vals, 4.0), atol=1e-3)
@@ -232,6 +236,7 @@ class TestFolderDataset:
 # load_dataset dispatcher
 # ---------------------------------------------------------------------------
 
+
 class TestLoadDataset:
     def test_unknown_name_raises(self):
         with pytest.raises(ValueError, match="Unknown dataset"):
@@ -271,6 +276,7 @@ class TestLoadDataset:
 # ---------------------------------------------------------------------------
 # hub.get_cache_dir
 # ---------------------------------------------------------------------------
+
 
 class TestGetCacheDir:
     def test_default_cache_dir(self):

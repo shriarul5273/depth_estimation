@@ -38,9 +38,7 @@ def plot_error_map(
         ValueError: If ``metric`` is not one of the supported values.
     """
     if metric not in _VALID_METRICS:
-        raise ValueError(
-            f"metric must be one of {_VALID_METRICS}, got {metric!r}"
-        )
+        raise ValueError(f"metric must be one of {_VALID_METRICS}, got {metric!r}")
 
     valid = gt_depth > 0
     error = np.full_like(pred_depth, np.nan, dtype=np.float32)
@@ -54,7 +52,9 @@ def plot_error_map(
         error[valid] = (p - g) ** 2 / g
     elif metric == "log10":
         with np.errstate(divide="ignore", invalid="ignore"):
-            error[valid] = np.abs(np.log10(np.maximum(p, 1e-8)) - np.log10(np.maximum(g, 1e-8)))
+            error[valid] = np.abs(
+                np.log10(np.maximum(p, 1e-8)) - np.log10(np.maximum(g, 1e-8))
+            )
     elif metric == "rmse":
         error[valid] = (p - g) ** 2
 

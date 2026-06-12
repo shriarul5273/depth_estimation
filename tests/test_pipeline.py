@@ -2,13 +2,16 @@
 
 import pytest
 import numpy as np
-import torch
 
 from depth_estimation.pipeline_utils import DepthPipeline, pipeline as pipeline_fn
 from depth_estimation.processing_utils import DepthProcessor
 from depth_estimation.output import DepthOutput
-from depth_estimation.models.depth_anything_v2.configuration_depth_anything_v2 import DepthAnythingV2Config
-from depth_estimation.models.depth_anything_v2.modeling_depth_anything_v2 import DepthAnythingV2Model
+from depth_estimation.models.depth_anything_v2.configuration_depth_anything_v2 import (
+    DepthAnythingV2Config,
+)
+from depth_estimation.models.depth_anything_v2.modeling_depth_anything_v2 import (
+    DepthAnythingV2Model,
+)
 
 
 class TestDepthPipeline:

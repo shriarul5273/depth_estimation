@@ -26,7 +26,7 @@ import json
 import logging
 import random
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -134,10 +134,14 @@ class DepthTrainer:
             logger.info(f"Epoch {epoch} train: {train_metrics}")
             epoch_bar.set_postfix({k: f"{v:.4f}" for k, v in train_metrics.items()})
 
-            if (epoch + 1) % self.args.eval_every_n_epochs == 0 and self.eval_dataset is not None:
+            if (
+                epoch + 1
+            ) % self.args.eval_every_n_epochs == 0 and self.eval_dataset is not None:
                 eval_metrics = self._eval_epoch(epoch)
                 logger.info(f"Epoch {epoch} eval:  {eval_metrics}")
-                epoch_bar.set_postfix({f"val_{k}": f"{v:.4f}" for k, v in eval_metrics.items()})
+                epoch_bar.set_postfix(
+                    {f"val_{k}": f"{v:.4f}" for k, v in eval_metrics.items()}
+                )
 
                 if self._is_plateau_scheduler and self.scheduler is not None:
                     self.scheduler.step(eval_metrics[self.args.eval_metric])
@@ -318,11 +322,11 @@ class DepthTrainer:
         )
         for batch in batch_bar:
             pixel_values = batch["pixel_values"].to(self.device, non_blocking=True)
-            depth_map    = batch["depth_map"].to(self.device, non_blocking=True)
-            valid_mask   = batch["valid_mask"].to(self.device, non_blocking=True)
+            depth_map = batch["depth_map"].to(self.device, non_blocking=True)
+            valid_mask = batch["valid_mask"].to(self.device, non_blocking=True)
 
             # Squeeze channel dim: (B,1,H,W) → (B,H,W)
-            depth_map  = depth_map.squeeze(1)
+            depth_map = depth_map.squeeze(1)
             valid_mask = valid_mask.squeeze(1)
 
             self.optimizer.zero_grad()
@@ -357,10 +361,12 @@ class DepthTrainer:
             self.global_step += 1
 
             avg_loss = running["loss"] / n_steps
-            batch_bar.set_postfix(loss=f"{avg_loss:.4f}", lr=f"{self.optimizer.param_groups[0]['lr']:.2e}")
+            batch_bar.set_postfix(
+                loss=f"{avg_loss:.4f}", lr=f"{self.optimizer.param_groups[0]['lr']:.2e}"
+            )
 
             if self.global_step % self.args.log_every_n_steps == 0:
-                avg_si   = running["si_loss"] / n_steps
+                avg_si = running["si_loss"] / n_steps
                 avg_grad = running["grad_loss"] / n_steps
                 lr = self.optimizer.param_groups[0]["lr"]
                 logger.info(
@@ -382,10 +388,12 @@ class DepthTrainer:
         ev = Evaluator()
 
         with torch.no_grad():
-            for batch in tqdm(self.eval_loader, desc=f"Eval  {epoch}", unit="batch", leave=False):
+            for batch in tqdm(
+                self.eval_loader, desc=f"Eval  {epoch}", unit="batch", leave=False
+            ):
                 pixel_values = batch["pixel_values"].to(self.device, non_blocking=True)
-                depth_map    = batch["depth_map"].to(self.device, non_blocking=True)
-                valid_mask   = batch["valid_mask"].to(self.device, non_blocking=True)
+                depth_map = batch["depth_map"].to(self.device, non_blocking=True)
+                valid_mask = batch["valid_mask"].to(self.device, non_blocking=True)
 
                 pred = self.model(pixel_values)
                 # Normalise shapes to (B, H, W)

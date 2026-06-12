@@ -7,7 +7,7 @@ New models register themselves via:
 Auto classes use this registry to resolve model identifiers at runtime.
 """
 
-from typing import Dict, Tuple, Type, Optional
+from typing import Dict, Type, Optional
 
 
 class ModelRegistry:

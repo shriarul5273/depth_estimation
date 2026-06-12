@@ -1,6 +1,5 @@
 """Tests for depth_estimation.video (VideoStream and process_video)."""
 
-import glob
 import unittest.mock as mock
 from pathlib import Path
 
@@ -45,6 +44,7 @@ def _write_video(path: Path, n_frames: int = 5, fps: float = 10.0) -> None:
 # ---------------------------------------------------------------------------
 # VideoStream — glob source
 # ---------------------------------------------------------------------------
+
 
 class TestVideoStreamGlob:
     def test_iterates_all_frames(self, tmp_path):
@@ -96,6 +96,7 @@ class TestVideoStreamGlob:
 # VideoStream — video file source
 # ---------------------------------------------------------------------------
 
+
 class TestVideoStreamFile:
     def test_iterates_frames(self, tmp_path):
         vid = tmp_path / "test.mp4"
@@ -126,6 +127,7 @@ class TestVideoStreamFile:
 # VideoStream — temporal filter
 # ---------------------------------------------------------------------------
 
+
 class TestTemporalFilter:
     def test_alpha_zero_is_identity(self, tmp_path):
         pattern = _write_png_frames(tmp_path, n=1)
@@ -149,7 +151,7 @@ class TestTemporalFilter:
         d0 = np.full((H, W), 0.2, dtype=np.float32)
         d1 = np.full((H, W), 0.8, dtype=np.float32)
         alpha = 0.5
-        vs._temporal_filter(d0, alpha)        # initialises _prev_depth = d0
+        vs._temporal_filter(d0, alpha)  # initialises _prev_depth = d0
         result = vs._temporal_filter(d1, alpha)
         expected = alpha * d0 + (1 - alpha) * d1
         np.testing.assert_allclose(result, expected, rtol=1e-5)
@@ -159,6 +161,7 @@ class TestTemporalFilter:
 # ---------------------------------------------------------------------------
 # process_video
 # ---------------------------------------------------------------------------
+
 
 class TestProcessVideo:
     def test_writes_output_file(self, tmp_path):
@@ -209,6 +212,7 @@ class TestProcessVideo:
 # DepthPipeline.stream integration (lightweight — no real model)
 # ---------------------------------------------------------------------------
 
+
 class TestDepthPipelineStream:
     def test_stream_yields_depth_output(self, tmp_path):
         pattern = _write_png_frames(tmp_path, n=3)
@@ -218,6 +222,7 @@ class TestDepthPipelineStream:
 
         # Build a minimal mock pipeline with a stream() method
         from depth_estimation.pipeline_utils import DepthPipeline
+
         mock_model = mock.MagicMock()
         mock_processor = mock.MagicMock()
         mock_processor.preprocess.return_value = {
@@ -227,6 +232,7 @@ class TestDepthPipelineStream:
         mock_processor.postprocess.return_value = fake_result
 
         import torch
+
         mock_model.return_value = torch.zeros(1, H, W)
         mock_model.config = mock.MagicMock()
         mock_model.config.model_type = "mock"

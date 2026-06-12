@@ -55,6 +55,7 @@ DEFAULT_MODEL = "depth-anything-v2-vits"
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def parse_args():
     p = argparse.ArgumentParser(
         description="Evaluate depth models on the NYU Depth V2 test set.",
@@ -62,10 +63,11 @@ def parse_args():
         epilog=__doc__,
     )
     p.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default=DEFAULT_MODEL,
         help=f"Model variant ID to evaluate (default: {DEFAULT_MODEL}). "
-             "Ignored when --compare is used.",
+        "Ignored when --compare is used.",
     )
     p.add_argument(
         "--compare",
@@ -77,7 +79,7 @@ def parse_args():
         default=None,
         metavar="DIR",
         help="Path to NYU Depth V2 root directory (containing .mat files). "
-             "Auto-downloads to ~/.cache/... if not provided.",
+        "Auto-downloads to ~/.cache/... if not provided.",
     )
     p.add_argument(
         "--num-samples",
@@ -111,7 +113,8 @@ def parse_args():
         help="Disable per-sample least-squares alignment for relative models.",
     )
     p.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default=None,
         metavar="FILE",
         help="Save results to a JSON file (e.g. results.json).",
@@ -136,7 +139,7 @@ def evaluate_single(args) -> dict:
 
     model_id = args.model
     print(f"\n{'=' * 65}")
-    print(f"  NYU Depth V2 Evaluation")
+    print("  NYU Depth V2 Evaluation")
     print(f"  Model:   {model_id}")
     print(f"  Samples: {args.num_samples or 'all 654'}")
     print(f"  Align:   {not args.no_align}")
@@ -162,13 +165,13 @@ def evaluate_single(args) -> dict:
     print(f"  {'Metric':<14}  {'Value':>10}  {'Direction'}")
     print(f"  {'──────':<14}  {'─────':>10}  {'─────────'}")
     for metric, direction in [
-        ("abs_rel",  "lower ↓"),
-        ("sq_rel",   "lower ↓"),
-        ("rmse",     "lower ↓"),
+        ("abs_rel", "lower ↓"),
+        ("sq_rel", "lower ↓"),
+        ("rmse", "lower ↓"),
         ("rmse_log", "lower ↓"),
-        ("delta1",   "higher ↑"),
-        ("delta2",   "higher ↑"),
-        ("delta3",   "higher ↑"),
+        ("delta1", "higher ↑"),
+        ("delta2", "higher ↑"),
+        ("delta3", "higher ↑"),
     ]:
         print(f"  {metric:<14}  {results[metric]:>10.4f}  {direction}")
     print(f"{'─' * 65}")
@@ -186,7 +189,7 @@ def evaluate_compare(args) -> dict:
     from depth_estimation.evaluation import compare
 
     print(f"\n{'=' * 65}")
-    print(f"  NYU Depth V2 — Model Comparison")
+    print("  NYU Depth V2 — Model Comparison")
     print(f"  Models:  {len(COMPARE_MODELS)}")
     print(f"  Samples: {args.num_samples or 'all 654'}")
     print(f"  Align:   {not args.no_align}")

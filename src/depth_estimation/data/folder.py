@@ -80,8 +80,7 @@ class FolderDataset(BaseDepthDataset):
 
     def _collect_samples(self) -> List[dict]:
         image_paths = sorted(
-            p for p in self.image_dir.iterdir()
-            if p.suffix.lower() in _IMAGE_EXTS
+            p for p in self.image_dir.iterdir() if p.suffix.lower() in _IMAGE_EXTS
         )
 
         if not image_paths:
@@ -107,7 +106,9 @@ class FolderDataset(BaseDepthDataset):
         if missing_depth > 0:
             logger.warning(
                 "%d / %d images have no matching depth file in %s",
-                missing_depth, len(samples), self.depth_dir,
+                missing_depth,
+                len(samples),
+                self.depth_dir,
             )
 
         return samples
@@ -143,6 +144,7 @@ class FolderDataset(BaseDepthDataset):
 
         elif ext == ".exr":
             import cv2
+
             depth = cv2.imread(str(depth_path), cv2.IMREAD_ANYDEPTH).astype(np.float32)
 
         else:

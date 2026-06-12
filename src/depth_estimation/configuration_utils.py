@@ -86,6 +86,7 @@ class BaseDepthConfig:
     def save_pretrained(self, save_directory: str) -> None:
         """Save config to a JSON file."""
         import os
+
         os.makedirs(save_directory, exist_ok=True)
         config_path = os.path.join(save_directory, "config.json")
         with open(config_path, "w") as f:
@@ -95,6 +96,7 @@ class BaseDepthConfig:
     def from_pretrained(cls, pretrained_path: str) -> "BaseDepthConfig":
         """Load config from a directory containing config.json."""
         import os
+
         config_path = os.path.join(pretrained_path, "config.json")
         with open(config_path, "r") as f:
             config_dict = json.load(f)

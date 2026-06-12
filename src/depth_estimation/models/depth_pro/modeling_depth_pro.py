@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # ViT utilities (vit.py)
 # ---------------------------------------------------------------------------
 
+
 def _make_vit_b16_backbone(
     model,
     encoder_feature_dims,
@@ -126,8 +127,16 @@ def _resize_patch_embed(model: nn.Module, new_patch_size=(16, 16)) -> nn.Module:
             model.patch_size = new_patch_size
             model.patch_embed.patch_size = new_patch_size
             model.patch_embed.img_size = (
-                int(model.patch_embed.img_size[0] * new_patch_size[0] / old_patch_size[0]),
-                int(model.patch_embed.img_size[1] * new_patch_size[1] / old_patch_size[1]),
+                int(
+                    model.patch_embed.img_size[0]
+                    * new_patch_size[0]
+                    / old_patch_size[0]
+                ),
+                int(
+                    model.patch_embed.img_size[1]
+                    * new_patch_size[1]
+                    / old_patch_size[1]
+                ),
             )
 
     return model
@@ -221,6 +230,7 @@ def create_vit(
 # Encoder (encoder.py)
 # ---------------------------------------------------------------------------
 
+
 class DepthProEncoder(nn.Module):
     """DepthPro Encoder combining patch and image encoders at multiple resolutions."""
 
@@ -243,7 +253,8 @@ class DepthProEncoder(nn.Module):
         image_encoder_embed_dim = image_encoder.embed_dim
 
         self.out_size = int(
-            patch_encoder.patch_embed.img_size[0] // patch_encoder.patch_embed.patch_size[0]
+            patch_encoder.patch_embed.img_size[0]
+            // patch_encoder.patch_embed.patch_size[0]
         )
 
         def _create_project_upsample_block(
@@ -284,16 +295,24 @@ class DepthProEncoder(nn.Module):
             upsample_layers=3,
         )
         self.upsample_latent1 = _create_project_upsample_block(
-            dim_in=patch_encoder_embed_dim, dim_out=self.dims_encoder[0], upsample_layers=2
+            dim_in=patch_encoder_embed_dim,
+            dim_out=self.dims_encoder[0],
+            upsample_layers=2,
         )
         self.upsample0 = _create_project_upsample_block(
-            dim_in=patch_encoder_embed_dim, dim_out=self.dims_encoder[1], upsample_layers=1
+            dim_in=patch_encoder_embed_dim,
+            dim_out=self.dims_encoder[1],
+            upsample_layers=1,
         )
         self.upsample1 = _create_project_upsample_block(
-            dim_in=patch_encoder_embed_dim, dim_out=self.dims_encoder[2], upsample_layers=1
+            dim_in=patch_encoder_embed_dim,
+            dim_out=self.dims_encoder[2],
+            upsample_layers=1,
         )
         self.upsample2 = _create_project_upsample_block(
-            dim_in=patch_encoder_embed_dim, dim_out=self.dims_encoder[3], upsample_layers=1
+            dim_in=patch_encoder_embed_dim,
+            dim_out=self.dims_encoder[3],
+            upsample_layers=1,
         )
         self.upsample_lowres = nn.ConvTranspose2d(
             in_channels=image_encoder_embed_dim,
@@ -312,8 +331,12 @@ class DepthProEncoder(nn.Module):
             bias=True,
         )
 
-        self.patch_encoder.blocks[self.hook_block_ids[0]].register_forward_hook(self._hook0)
-        self.patch_encoder.blocks[self.hook_block_ids[1]].register_forward_hook(self._hook1)
+        self.patch_encoder.blocks[self.hook_block_ids[0]].register_forward_hook(
+            self._hook0
+        )
+        self.patch_encoder.blocks[self.hook_block_ids[1]].register_forward_hook(
+            self._hook1
+        )
 
     def _hook0(self, model, input, output):
         self.backbone_highres_hook0 = output
@@ -325,10 +348,16 @@ class DepthProEncoder(nn.Module):
     def img_size(self) -> int:
         return self.patch_encoder.patch_embed.img_size[0] * 4
 
-    def _create_pyramid(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _create_pyramid(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         x0 = x
-        x1 = F.interpolate(x, size=None, scale_factor=0.5, mode="bilinear", align_corners=False)
-        x2 = F.interpolate(x, size=None, scale_factor=0.25, mode="bilinear", align_corners=False)
+        x1 = F.interpolate(
+            x, size=None, scale_factor=0.5, mode="bilinear", align_corners=False
+        )
+        x2 = F.interpolate(
+            x, size=None, scale_factor=0.25, mode="bilinear", align_corners=False
+        )
         return x0, x1, x2
 
     def split(self, x: torch.Tensor, overlap_ratio: float = 0.25) -> torch.Tensor:
@@ -368,7 +397,9 @@ class DepthProEncoder(nn.Module):
             output_list.append(output_row)
         return torch.cat(output_list, dim=-2)
 
-    def reshape_feature(self, embeddings: torch.Tensor, width, height, cls_token_offset=1):
+    def reshape_feature(
+        self, embeddings: torch.Tensor, width, height, cls_token_offset=1
+    ):
         b, hw, c = embeddings.shape
         if cls_token_offset > 0:
             embeddings = embeddings[:, cls_token_offset:, :]
@@ -444,6 +475,7 @@ class DepthProEncoder(nn.Module):
 # Decoder (decoder.py)
 # ---------------------------------------------------------------------------
 
+
 class _ResidualBlock(nn.Module):
     def __init__(self, residual: nn.Module, shortcut: nn.Module | None = None) -> None:
         super().__init__()
@@ -458,7 +490,9 @@ class _ResidualBlock(nn.Module):
 
 
 class _FeatureFusionBlock2d(nn.Module):
-    def __init__(self, num_features: int, deconv: bool = False, batch_norm: bool = False):
+    def __init__(
+        self, num_features: int, deconv: bool = False, batch_norm: bool = False
+    ):
         super().__init__()
 
         self.resnet1 = self._residual_block(num_features, batch_norm)
@@ -549,7 +583,9 @@ class MultiresConvDecoder(nn.Module):
         fusions = []
         for i in range(num_encoders):
             fusions.append(
-                _FeatureFusionBlock2d(num_features=dim_decoder, deconv=(i != 0), batch_norm=False)
+                _FeatureFusionBlock2d(
+                    num_features=dim_decoder, deconv=(i != 0), batch_norm=False
+                )
             )
         self.fusions = nn.ModuleList(fusions)
 
@@ -575,6 +611,7 @@ class MultiresConvDecoder(nn.Module):
 # FOV network (fov.py)
 # ---------------------------------------------------------------------------
 
+
 class FOVNetwork(nn.Module):
     """Field of View estimation network."""
 
@@ -582,13 +619,19 @@ class FOVNetwork(nn.Module):
         super().__init__()
 
         fov_head0 = [
-            nn.Conv2d(num_features, num_features // 2, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(
+                num_features, num_features // 2, kernel_size=3, stride=2, padding=1
+            ),
             nn.ReLU(True),
         ]
         fov_head = [
-            nn.Conv2d(num_features // 2, num_features // 4, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(
+                num_features // 2, num_features // 4, kernel_size=3, stride=2, padding=1
+            ),
             nn.ReLU(True),
-            nn.Conv2d(num_features // 4, num_features // 8, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(
+                num_features // 4, num_features // 8, kernel_size=3, stride=2, padding=1
+            ),
             nn.ReLU(True),
             nn.Conv2d(num_features // 8, 1, kernel_size=6, stride=1, padding=0),
         ]
@@ -618,6 +661,7 @@ class FOVNetwork(nn.Module):
 # Main model
 # ---------------------------------------------------------------------------
 
+
 class _DepthProNet(nn.Module):
     """DepthPro neural network (encoder + decoder + depth head + optional FOV head)."""
 
@@ -636,7 +680,9 @@ class _DepthProNet(nn.Module):
 
         dim_decoder = decoder.dim_decoder
         self.head = nn.Sequential(
-            nn.Conv2d(dim_decoder, dim_decoder // 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                dim_decoder, dim_decoder // 2, kernel_size=3, stride=1, padding=1
+            ),
             nn.ConvTranspose2d(
                 in_channels=dim_decoder // 2,
                 out_channels=dim_decoder // 2,
@@ -645,7 +691,9 @@ class _DepthProNet(nn.Module):
                 padding=0,
                 bias=True,
             ),
-            nn.Conv2d(dim_decoder // 2, last_dims[0], kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                dim_decoder // 2, last_dims[0], kernel_size=3, stride=1, padding=1
+            ),
             nn.ReLU(True),
             nn.Conv2d(last_dims[0], last_dims[1], kernel_size=1, stride=1, padding=0),
             nn.ReLU(),
@@ -839,7 +887,9 @@ class DepthProModel(BaseDepthModel):
             repo_type="model",
         )
         state_dict = torch.load(checkpoint_path, map_location="cpu")
-        missing_keys, unexpected_keys = net.load_state_dict(state_dict=state_dict, strict=True)
+        missing_keys, unexpected_keys = net.load_state_dict(
+            state_dict=state_dict, strict=True
+        )
 
         if unexpected_keys:
             raise KeyError(f"Unexpected keys loading DepthPro: {unexpected_keys}")

@@ -6,14 +6,14 @@ Metric depth estimation fine-tuned on NYU and KITTI datasets.
 """
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from ...modeling_utils import BaseDepthModel, _auto_detect_device
+from ...modeling_utils import BaseDepthModel
 from .configuration_zoedepth import ZoeDepthConfig, _ZOEDEPTH_VARIANT_MAP
 
 logger = logging.getLogger(__name__)
@@ -81,8 +81,12 @@ class ZoeDepthModel(BaseDepthModel):
             # Convert tensor to PIL for the HF pipeline
             img_tensor = pixel_values[i]
             # Denormalize
-            mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(img_tensor.device)
-            std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(img_tensor.device)
+            mean = (
+                torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(img_tensor.device)
+            )
+            std = (
+                torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(img_tensor.device)
+            )
             img_tensor = img_tensor * std + mean
             img_tensor = img_tensor.clamp(0, 1)
             img_np = (img_tensor.cpu().permute(1, 2, 0).numpy() * 255).astype(np.uint8)

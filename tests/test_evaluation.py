@@ -9,7 +9,6 @@ from __future__ import annotations
 import math
 
 import numpy as np
-import pytest
 import torch
 
 from depth_estimation.evaluation import (
@@ -22,6 +21,7 @@ from depth_estimation.evaluation import (
 # ---------------------------------------------------------------------------
 # align_least_squares
 # ---------------------------------------------------------------------------
+
 
 class TestAlignLeastSquares:
     def test_perfect_prediction(self):
@@ -80,6 +80,7 @@ class TestAlignLeastSquares:
 # DepthMetrics
 # ---------------------------------------------------------------------------
 
+
 class TestDepthMetrics:
     def test_perfect_prediction_zero_error(self):
         depth = torch.full((32, 32), 2.0)
@@ -97,7 +98,15 @@ class TestDepthMetrics:
         pred = torch.ones(16, 16)
         target = torch.ones(16, 16)
         result = DepthMetrics()(pred, target)
-        expected_keys = {"abs_rel", "sq_rel", "rmse", "rmse_log", "delta1", "delta2", "delta3"}
+        expected_keys = {
+            "abs_rel",
+            "sq_rel",
+            "rmse",
+            "rmse_log",
+            "delta1",
+            "delta2",
+            "delta3",
+        }
         assert set(result.keys()) == expected_keys
 
     def test_all_values_are_float(self):
@@ -162,6 +171,7 @@ class TestDepthMetrics:
 # Evaluator
 # ---------------------------------------------------------------------------
 
+
 class TestEvaluator:
     def test_single_batch_matches_depth_metrics(self):
         pred = torch.rand(1, 16, 16) + 0.1
@@ -190,7 +200,7 @@ class TestEvaluator:
         target1 = torch.full((1, 10, 10), 1.0)  # error = 1.0 per pixel
 
         pred2 = torch.full((1, 1, 1), 11.0)
-        target2 = torch.full((1, 1, 1), 1.0)   # error = 10.0
+        target2 = torch.full((1, 1, 1), 1.0)  # error = 10.0
 
         ev = Evaluator()
         ev.update(pred1, target1)
@@ -255,6 +265,7 @@ class TestEvaluator:
 # profile_latency (CPU smoke test — no model download)
 # ---------------------------------------------------------------------------
 
+
 class TestProfileLatency:
     def test_cpu_smoke_test(self):
         """Run profile_latency with a minimal nn.Module to verify the API without downloading weights."""
@@ -263,6 +274,7 @@ class TestProfileLatency:
 
         class _IdentityDepthModel(nn.Module):
             """Minimal stand-in: returns an all-ones depth map."""
+
             def forward(self, x: torch.Tensor) -> torch.Tensor:
                 b, _, h, w = x.shape
                 return torch.ones(b, 1, h, w, device=x.device)

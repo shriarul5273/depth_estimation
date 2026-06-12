@@ -61,6 +61,7 @@ DEFAULT_MODEL = "depth-anything-v2-vitb"
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def parse_args():
     p = argparse.ArgumentParser(
         description="Evaluate depth models on the DIODE val set.",
@@ -68,10 +69,11 @@ def parse_args():
         epilog=__doc__,
     )
     p.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default=DEFAULT_MODEL,
         help=f"Model variant ID to evaluate (default: {DEFAULT_MODEL}). "
-             "Ignored when --compare is used.",
+        "Ignored when --compare is used.",
     )
     p.add_argument(
         "--compare",
@@ -95,13 +97,13 @@ def parse_args():
         default=None,
         metavar="DIR",
         help="Path to DIODE root (containing val/ and/or train/ dirs). "
-             "Auto-downloads to ~/.cache/... if not provided.",
+        "Auto-downloads to ~/.cache/... if not provided.",
     )
     p.add_argument(
         "--download-train",
         action="store_true",
         help="Allow auto-downloading the train split (~81 GB). "
-             "Only relevant when --split train is used.",
+        "Only relevant when --split train is used.",
     )
     p.add_argument(
         "--max-depth",
@@ -109,7 +111,7 @@ def parse_args():
         default=350.0,
         metavar="M",
         help="Maximum valid depth in metres (default: 350.0). "
-             "Use 10.0 for indoors-only evaluation.",
+        "Use 10.0 for indoors-only evaluation.",
     )
     p.add_argument(
         "--num-samples",
@@ -143,7 +145,8 @@ def parse_args():
         help="Disable per-sample least-squares alignment for relative models.",
     )
     p.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default=None,
         metavar="FILE",
         help="Save results to a JSON file.",
@@ -170,7 +173,7 @@ def evaluate_single(args) -> dict:
     n_approx = _scene_counts(args.scene_type)
 
     print(f"\n{'=' * 65}")
-    print(f"  DIODE Evaluation")
+    print("  DIODE Evaluation")
     print(f"  Model:      {model_id}")
     print(f"  Split:      {args.split}")
     print(f"  Scene type: {args.scene_type} (~{n_approx} images)")
@@ -206,13 +209,13 @@ def evaluate_single(args) -> dict:
     print(f"  {'Metric':<14}  {'Value':>10}  {'Direction'}")
     print(f"  {'──────':<14}  {'─────':>10}  {'─────────'}")
     for metric, direction in [
-        ("abs_rel",  "lower ↓"),
-        ("sq_rel",   "lower ↓"),
-        ("rmse",     "lower ↓"),
+        ("abs_rel", "lower ↓"),
+        ("sq_rel", "lower ↓"),
+        ("rmse", "lower ↓"),
         ("rmse_log", "lower ↓"),
-        ("delta1",   "higher ↑"),
-        ("delta2",   "higher ↑"),
-        ("delta3",   "higher ↑"),
+        ("delta1", "higher ↑"),
+        ("delta2", "higher ↑"),
+        ("delta3", "higher ↑"),
     ]:
         print(f"  {metric:<14}  {results[metric]:>10.4f}  {direction}")
     print(f"{'─' * 65}")
@@ -232,7 +235,7 @@ def evaluate_compare(args) -> dict:
 
     n_approx = _scene_counts(args.scene_type)
     print(f"\n{'=' * 65}")
-    print(f"  DIODE — Model Comparison")
+    print("  DIODE — Model Comparison")
     print(f"  Split:      {args.split}")
     print(f"  Scene type: {args.scene_type} (~{n_approx} images)")
     print(f"  Max depth:  {args.max_depth} m")

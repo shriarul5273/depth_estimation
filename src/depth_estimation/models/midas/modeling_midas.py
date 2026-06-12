@@ -111,7 +111,9 @@ class MiDaSModel(BaseDepthModel):
 
         config = MiDaSConfig(backbone=backbone)
 
-        logger.info("Loading MiDaS (%s) from %s …", config.display_name, config.hf_model_id)
+        logger.info(
+            "Loading MiDaS (%s) from %s …", config.display_name, config.hf_model_id
+        )
 
         # low_cpu_mem_usage=False avoids accelerate's meta-device placement,
         # which (when CUDA is available) can scatter tensors across devices and

@@ -10,11 +10,13 @@ from ...registry import MODEL_REGISTRY
 
 def _load_model_cls():
     from .modeling_depth_anything_v3 import DepthAnythingV3Model
+
     return DepthAnythingV3Model
 
 
 def _load_nested_model_cls():
     from .modeling_depth_anything_v3 import DepthAnythingV3NestedModel
+
     return DepthAnythingV3NestedModel
 
 
@@ -36,9 +38,11 @@ MODEL_REGISTRY.register(
 def __getattr__(name):
     if name == "DepthAnythingV3Model":
         from .modeling_depth_anything_v3 import DepthAnythingV3Model
+
         return DepthAnythingV3Model
     if name == "DepthAnythingV3NestedModel":
         from .modeling_depth_anything_v3 import DepthAnythingV3NestedModel
+
         return DepthAnythingV3NestedModel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

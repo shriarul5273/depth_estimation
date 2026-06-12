@@ -10,14 +10,14 @@ Weights loaded via HuggingFace Hub (PyTorchModelHubMixin).
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from huggingface_hub import PyTorchModelHubMixin
 
-from ...modeling_utils import BaseDepthModel, _auto_detect_device
+from ...modeling_utils import BaseDepthModel
 from .configuration_depth_anything_v1 import DepthAnythingV1Config, _V1_VARIANT_MAP
 
 logger = logging.getLogger(__name__)
@@ -44,16 +44,40 @@ def _make_scratch(in_shape, out_shape, groups=1, expand=False):
         out_shape4 = out_shape * 8
 
     scratch.layer1_rn = nn.Conv2d(
-        in_shape[0], out_shape1, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
+        in_shape[0],
+        out_shape1,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
     )
     scratch.layer2_rn = nn.Conv2d(
-        in_shape[1], out_shape2, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
+        in_shape[1],
+        out_shape2,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
     )
     scratch.layer3_rn = nn.Conv2d(
-        in_shape[2], out_shape3, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
+        in_shape[2],
+        out_shape3,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
     )
     scratch.layer4_rn = nn.Conv2d(
-        in_shape[3], out_shape4, kernel_size=3, stride=1, padding=1, bias=False, groups=groups
+        in_shape[3],
+        out_shape4,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
     )
     return scratch
 
@@ -65,8 +89,24 @@ class ResidualConvUnit(nn.Module):
         super().__init__()
         self.bn = bn
         self.groups = 1
-        self.conv1 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
-        self.conv2 = nn.Conv2d(features, features, kernel_size=3, stride=1, padding=1, bias=True, groups=self.groups)
+        self.conv1 = nn.Conv2d(
+            features,
+            features,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=True,
+            groups=self.groups,
+        )
+        self.conv2 = nn.Conv2d(
+            features,
+            features,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=True,
+            groups=self.groups,
+        )
         if self.bn:
             self.bn1 = nn.BatchNorm2d(features)
             self.bn2 = nn.BatchNorm2d(features)
@@ -88,7 +128,16 @@ class ResidualConvUnit(nn.Module):
 class FeatureFusionBlock(nn.Module):
     """Feature fusion block."""
 
-    def __init__(self, features, activation, deconv=False, bn=False, expand=False, align_corners=True, size=None):
+    def __init__(
+        self,
+        features,
+        activation,
+        deconv=False,
+        bn=False,
+        expand=False,
+        align_corners=True,
+        size=None,
+    ):
         super().__init__()
         self.deconv = deconv
         self.align_corners = align_corners
@@ -97,7 +146,15 @@ class FeatureFusionBlock(nn.Module):
         out_features = features
         if self.expand:
             out_features = features // 2
-        self.out_conv = nn.Conv2d(features, out_features, kernel_size=1, stride=1, padding=0, bias=True, groups=1)
+        self.out_conv = nn.Conv2d(
+            features,
+            out_features,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=True,
+            groups=1,
+        )
         self.resConfUnit1 = ResidualConvUnit(features, activation, bn)
         self.resConfUnit2 = ResidualConvUnit(features, activation, bn)
         self.skip_add = nn.quantized.FloatFunctional()
@@ -115,23 +172,37 @@ class FeatureFusionBlock(nn.Module):
             modifier = {"size": self.size}
         else:
             modifier = {"size": size}
-        output = nn.functional.interpolate(output, **modifier, mode="bilinear", align_corners=self.align_corners)
+        output = nn.functional.interpolate(
+            output, **modifier, mode="bilinear", align_corners=self.align_corners
+        )
         output = self.out_conv(output)
         return output
 
 
 def _make_fusion_block(features, use_bn, size=None):
     return FeatureFusionBlock(
-        features, nn.ReLU(False), deconv=False, bn=use_bn,
-        expand=False, align_corners=True, size=size,
+        features,
+        nn.ReLU(False),
+        deconv=False,
+        bn=use_bn,
+        expand=False,
+        align_corners=True,
+        size=size,
     )
 
 
 class DPTHead(nn.Module):
     """Dense Prediction Transformer head for monocular depth estimation."""
 
-    def __init__(self, nclass, in_channels, features=256, use_bn=False,
-                 out_channels=None, use_clstoken=False):
+    def __init__(
+        self,
+        nclass,
+        in_channels,
+        features=256,
+        use_bn=False,
+        out_channels=None,
+        use_clstoken=False,
+    ):
         super().__init__()
         if out_channels is None:
             out_channels = [256, 512, 1024, 1024]
@@ -139,21 +210,45 @@ class DPTHead(nn.Module):
         self.nclass = nclass
         self.use_clstoken = use_clstoken
 
-        self.projects = nn.ModuleList([
-            nn.Conv2d(in_channels=in_channels, out_channels=oc,
-                      kernel_size=1, stride=1, padding=0)
-            for oc in out_channels
-        ])
+        self.projects = nn.ModuleList(
+            [
+                nn.Conv2d(
+                    in_channels=in_channels,
+                    out_channels=oc,
+                    kernel_size=1,
+                    stride=1,
+                    padding=0,
+                )
+                for oc in out_channels
+            ]
+        )
 
-        self.resize_layers = nn.ModuleList([
-            nn.ConvTranspose2d(in_channels=out_channels[0], out_channels=out_channels[0],
-                               kernel_size=4, stride=4, padding=0),
-            nn.ConvTranspose2d(in_channels=out_channels[1], out_channels=out_channels[1],
-                               kernel_size=2, stride=2, padding=0),
-            nn.Identity(),
-            nn.Conv2d(in_channels=out_channels[3], out_channels=out_channels[3],
-                      kernel_size=3, stride=2, padding=1),
-        ])
+        self.resize_layers = nn.ModuleList(
+            [
+                nn.ConvTranspose2d(
+                    in_channels=out_channels[0],
+                    out_channels=out_channels[0],
+                    kernel_size=4,
+                    stride=4,
+                    padding=0,
+                ),
+                nn.ConvTranspose2d(
+                    in_channels=out_channels[1],
+                    out_channels=out_channels[1],
+                    kernel_size=2,
+                    stride=2,
+                    padding=0,
+                ),
+                nn.Identity(),
+                nn.Conv2d(
+                    in_channels=out_channels[3],
+                    out_channels=out_channels[3],
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                ),
+            ]
+        )
 
         if use_clstoken:
             self.readout_projects = nn.ModuleList()
@@ -174,16 +269,28 @@ class DPTHead(nn.Module):
 
         if nclass > 1:
             self.scratch.output_conv = nn.Sequential(
-                nn.Conv2d(head_features_1, head_features_1, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(
+                    head_features_1, head_features_1, kernel_size=3, stride=1, padding=1
+                ),
                 nn.ReLU(True),
                 nn.Conv2d(head_features_1, nclass, kernel_size=1, stride=1, padding=0),
             )
         else:
             self.scratch.output_conv1 = nn.Conv2d(
-                head_features_1, head_features_1 // 2, kernel_size=3, stride=1, padding=1
+                head_features_1,
+                head_features_1 // 2,
+                kernel_size=3,
+                stride=1,
+                padding=1,
             )
             self.scratch.output_conv2 = nn.Sequential(
-                nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(
+                    head_features_1 // 2,
+                    head_features_2,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                ),
                 nn.ReLU(True),
                 nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0),
                 nn.ReLU(True),
@@ -218,7 +325,12 @@ class DPTHead(nn.Module):
         path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
 
         out = self.scratch.output_conv1(path_1)
-        out = F.interpolate(out, (int(patch_h * 14), int(patch_w * 14)), mode="bilinear", align_corners=True)
+        out = F.interpolate(
+            out,
+            (int(patch_h * 14), int(patch_w * 14)),
+            mode="bilinear",
+            align_corners=True,
+        )
         out = self.scratch.output_conv2(out)
         return out
 
@@ -226,8 +338,15 @@ class DPTHead(nn.Module):
 class DPT_DINOv2(nn.Module):
     """DPT model with DINOv2 backbone (loaded via torch.hub)."""
 
-    def __init__(self, encoder="vitl", features=256, out_channels=None,
-                 use_bn=False, use_clstoken=False, localhub=False):
+    def __init__(
+        self,
+        encoder="vitl",
+        features=256,
+        out_channels=None,
+        use_bn=False,
+        use_clstoken=False,
+        localhub=False,
+    ):
         super().__init__()
         if out_channels is None:
             out_channels = [256, 512, 1024, 1024]
@@ -236,8 +355,14 @@ class DPT_DINOv2(nn.Module):
 
         if localhub:
             torchhub_path = os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..",
-                "Depth-Estimation-Compare-demo", "Depth-Anything", "torchhub",
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "..",
+                "..",
+                "Depth-Estimation-Compare-demo",
+                "Depth-Anything",
+                "torchhub",
                 "facebookresearch_dinov2_main",
             )
             torchhub_path = os.path.abspath(torchhub_path)
@@ -251,12 +376,19 @@ class DPT_DINOv2(nn.Module):
 
         dim = self.pretrained.blocks[0].attn.qkv.in_features
         self.depth_head = DPTHead(
-            1, dim, features, use_bn, out_channels=out_channels, use_clstoken=use_clstoken
+            1,
+            dim,
+            features,
+            use_bn,
+            out_channels=out_channels,
+            use_clstoken=use_clstoken,
         )
 
     def forward(self, x):
         h, w = x.shape[-2:]
-        features = self.pretrained.get_intermediate_layers(x, 4, return_class_token=True)
+        features = self.pretrained.get_intermediate_layers(
+            x, 4, return_class_token=True
+        )
         patch_h, patch_w = h // 14, w // 14
         depth = self.depth_head(features, patch_h, patch_w)
         depth = F.interpolate(depth, size=(h, w), mode="bilinear", align_corners=True)
@@ -338,9 +470,7 @@ class DepthAnythingV1Model(BaseDepthModel):
         config = DepthAnythingV1Config(backbone=backbone)
 
         # Load via PyTorchModelHubMixin
-        hub_model = _DepthAnythingHubModel.from_pretrained(
-            config.hub_model_id
-        )
+        hub_model = _DepthAnythingHubModel.from_pretrained(config.hub_model_id)
 
         # Wrap in our model class
         model = cls(config)

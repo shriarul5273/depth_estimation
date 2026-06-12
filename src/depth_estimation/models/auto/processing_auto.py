@@ -2,7 +2,7 @@
 AutoProcessor — Automatic processor resolution via the global registry.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from ...registry import MODEL_REGISTRY
 
@@ -46,4 +46,5 @@ class AutoProcessor:
             config = config_cls()
 
         from ...processing_utils import DepthProcessor
+
         return DepthProcessor.from_config(config)

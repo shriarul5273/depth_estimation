@@ -6,6 +6,7 @@ from ...registry import MODEL_REGISTRY
 
 def _load_model_cls():
     from .modeling_depth_pro import DepthProModel
+
     return DepthProModel
 
 
@@ -20,6 +21,7 @@ MODEL_REGISTRY.register(
 def __getattr__(name):
     if name == "DepthProModel":
         from .modeling_depth_pro import DepthProModel
+
         return DepthProModel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

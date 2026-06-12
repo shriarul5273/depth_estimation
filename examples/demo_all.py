@@ -68,9 +68,9 @@ def run_inference(model_id: str, image_path: str, output_dir: str):
     """Run inference with a single model and save the result."""
     from depth_estimation import pipeline
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  Model: {model_id}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         t0 = time.time()
@@ -96,8 +96,10 @@ def run_inference(model_id: str, image_path: str, output_dir: str):
         if result.depth is not None:
             npy_path = os.path.join(output_dir, f"{model_id}_raw.npy")
             np.save(npy_path, result.depth)
-            print(f"  Raw depth shape: {result.depth.shape}, "
-                  f"range: [{result.depth.min():.4f}, {result.depth.max():.4f}]")
+            print(
+                f"  Raw depth shape: {result.depth.shape}, "
+                f"range: [{result.depth.min():.4f}, {result.depth.max():.4f}]"
+            )
 
         print(f"  ✅ SUCCESS ({load_time + infer_time:.2f}s total)")
         return True
@@ -131,9 +133,9 @@ def main():
             results["skipped"].append(model_id)
 
     # Summary
-    print(f"\n{'='*60}")
-    print(f"  SUMMARY")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  SUMMARY")
+    print(f"{'=' * 60}")
     print(f"  ✅ Success:  {len(results['success'])}/{len(ALL_MODELS)}")
     for m in results["success"]:
         print(f"     - {m}")

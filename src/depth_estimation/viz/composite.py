@@ -68,13 +68,18 @@ def create_anaglyph(
     map_x_right = np.clip(map_x + disparity, 0, W - 1).astype(np.float32)
     map_y_right = map_y.astype(np.float32)
 
-    right_eye = cv2.remap(image, map_x_right, map_y_right, cv2.INTER_LINEAR,
-                          borderMode=cv2.BORDER_REPLICATE)
+    right_eye = cv2.remap(
+        image,
+        map_x_right,
+        map_y_right,
+        cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
 
     # Left eye: grayscale in red channel; right eye: color in green+blue
     left_gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     anaglyph = np.zeros_like(image)
-    anaglyph[:, :, 0] = left_gray           # red channel ← left eye
+    anaglyph[:, :, 0] = left_gray  # red channel ← left eye
     anaglyph[:, :, 1] = right_eye[:, :, 1]  # green channel ← right eye
     anaglyph[:, :, 2] = right_eye[:, :, 2]  # blue channel ← right eye
     return anaglyph

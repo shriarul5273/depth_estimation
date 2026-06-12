@@ -8,26 +8,23 @@ from depth_estimation.models.auto.processing_auto import AutoProcessor
 from depth_estimation.processing_utils import DepthProcessor
 
 # Import all models to trigger registration
-import depth_estimation.models.depth_anything_v1
-import depth_estimation.models.depth_anything_v2
-import depth_estimation.models.depth_anything_v3
-import depth_estimation.models.zoedepth
-import depth_estimation.models.midas
-import depth_estimation.models.depth_pro
-import depth_estimation.models.pixel_perfect_depth
-import depth_estimation.models.marigold_dc
-import depth_estimation.models.moge
-import depth_estimation.models.vggt
-import depth_estimation.models.omnivggt
 
 
 class TestModelRegistry:
     def test_registered_types(self):
         types = MODEL_REGISTRY.list_model_types()
         expected_types = [
-            "depth-anything-v1", "depth-anything-v2", "depth-anything-v3",
-            "zoedepth", "midas", "depth-pro", "pixel-perfect-depth",
-            "marigold-dc", "moge", "vggt", "omnivggt",
+            "depth-anything-v1",
+            "depth-anything-v2",
+            "depth-anything-v3",
+            "zoedepth",
+            "midas",
+            "depth-pro",
+            "pixel-perfect-depth",
+            "marigold-dc",
+            "moge",
+            "vggt",
+            "omnivggt",
         ]
         for t in expected_types:
             assert t in types, f"{t} not registered"
@@ -36,17 +33,27 @@ class TestModelRegistry:
         variants = MODEL_REGISTRY.list_variants()
         expected = [
             # v1
-            "depth-anything-v1-vits", "depth-anything-v1-vitb", "depth-anything-v1-vitl",
+            "depth-anything-v1-vits",
+            "depth-anything-v1-vitb",
+            "depth-anything-v1-vitl",
             # v2
-            "depth-anything-v2-vits", "depth-anything-v2-vitb", "depth-anything-v2-vitl",
+            "depth-anything-v2-vits",
+            "depth-anything-v2-vitb",
+            "depth-anything-v2-vitl",
             # v3
-            "depth-anything-v3-small", "depth-anything-v3-base", "depth-anything-v3-large",
-            "depth-anything-v3-giant", "depth-anything-v3-nested-giant-large",
-            "depth-anything-v3-metric-large", "depth-anything-v3-mono-large",
+            "depth-anything-v3-small",
+            "depth-anything-v3-base",
+            "depth-anything-v3-large",
+            "depth-anything-v3-giant",
+            "depth-anything-v3-nested-giant-large",
+            "depth-anything-v3-metric-large",
+            "depth-anything-v3-mono-large",
             # zoedepth
             "zoedepth",
             # midas
-            "midas-dpt-large", "midas-dpt-hybrid", "midas-beit-large",
+            "midas-dpt-large",
+            "midas-dpt-hybrid",
+            "midas-beit-large",
             # depth-pro
             "depth-pro",
             # ppd
@@ -54,10 +61,14 @@ class TestModelRegistry:
             # marigold-dc
             "marigold-dc",
             # moge (5 variants)
-            "moge-v1", "moge-v2-vitl", "moge-v2-vitl-normal",
-            "moge-v2-vitb-normal", "moge-v2-vits-normal",
+            "moge-v1",
+            "moge-v2-vitl",
+            "moge-v2-vitl-normal",
+            "moge-v2-vitb-normal",
+            "moge-v2-vits-normal",
             # vggt (2 variants)
-            "vggt", "vggt-commercial",
+            "vggt",
+            "vggt-commercial",
             # omnivggt (1 variant)
             "omnivggt",
         ]
@@ -81,8 +92,14 @@ class TestModelRegistry:
         assert MODEL_REGISTRY.resolve_model_type("zoedepth") == "zoedepth"
         assert MODEL_REGISTRY.resolve_model_type("midas-dpt-large") == "midas"
         assert MODEL_REGISTRY.resolve_model_type("depth-pro") == "depth-pro"
-        assert MODEL_REGISTRY.resolve_model_type("pixel-perfect-depth") == "pixel-perfect-depth"
-        assert MODEL_REGISTRY.resolve_model_type("depth-anything-v3-large") == "depth-anything-v3"
+        assert (
+            MODEL_REGISTRY.resolve_model_type("pixel-perfect-depth")
+            == "pixel-perfect-depth"
+        )
+        assert (
+            MODEL_REGISTRY.resolve_model_type("depth-anything-v3-large")
+            == "depth-anything-v3"
+        )
         assert MODEL_REGISTRY.resolve_model_type("marigold-dc") == "marigold-dc"
 
     def test_resolve_unknown(self):
@@ -91,24 +108,27 @@ class TestModelRegistry:
 
 
 class TestAutoDepthModel:
-    @pytest.mark.parametrize("variant_id,expected_class", [
-        ("depth-anything-v1-vits", "DepthAnythingV1Model"),
-        ("depth-anything-v2-vitb", "DepthAnythingV2Model"),
-        ("depth-anything-v3-large", "DepthAnythingV3Model"),
-        ("zoedepth", "ZoeDepthModel"),
-        ("midas-dpt-large", "MiDaSModel"),
-        ("midas-dpt-hybrid", "MiDaSModel"),
-        ("midas-beit-large", "MiDaSModel"),
-        ("depth-pro", "DepthProModel"),
-        ("pixel-perfect-depth", "PixelPerfectDepthModel"),
-        ("marigold-dc", "MarigoldDCModel"),
-        ("moge-v1", "MoGeModel"),
-        ("moge-v2-vitl", "MoGeModel"),
-        ("moge-v2-vits-normal", "MoGeModel"),
-        ("vggt", "VGGTModel"),
-        ("vggt-commercial", "VGGTModel"),
-        ("omnivggt", "OmniVGGTModel"),
-    ])
+    @pytest.mark.parametrize(
+        "variant_id,expected_class",
+        [
+            ("depth-anything-v1-vits", "DepthAnythingV1Model"),
+            ("depth-anything-v2-vitb", "DepthAnythingV2Model"),
+            ("depth-anything-v3-large", "DepthAnythingV3Model"),
+            ("zoedepth", "ZoeDepthModel"),
+            ("midas-dpt-large", "MiDaSModel"),
+            ("midas-dpt-hybrid", "MiDaSModel"),
+            ("midas-beit-large", "MiDaSModel"),
+            ("depth-pro", "DepthProModel"),
+            ("pixel-perfect-depth", "PixelPerfectDepthModel"),
+            ("marigold-dc", "MarigoldDCModel"),
+            ("moge-v1", "MoGeModel"),
+            ("moge-v2-vitl", "MoGeModel"),
+            ("moge-v2-vits-normal", "MoGeModel"),
+            ("vggt", "VGGTModel"),
+            ("vggt-commercial", "VGGTModel"),
+            ("omnivggt", "OmniVGGTModel"),
+        ],
+    )
     def test_resolves_correct_class(self, variant_id, expected_class):
         model_cls = MODEL_REGISTRY.get_model_cls(variant_id)
         assert model_cls.__name__ == expected_class
@@ -119,19 +139,31 @@ class TestAutoDepthModel:
 
 
 class TestAutoProcessor:
-    @pytest.mark.parametrize("variant_id", [
-        "depth-anything-v1-vits", "depth-anything-v1-vitb", "depth-anything-v1-vitl",
-        "depth-anything-v2-vits", "depth-anything-v2-vitb", "depth-anything-v2-vitl",
-        "depth-anything-v3-small", "depth-anything-v3-large",
-        "zoedepth",
-        "midas-dpt-large", "midas-beit-large",
-        "depth-pro",
-        "pixel-perfect-depth",
-        "marigold-dc",
-        "moge-v1", "moge-v2-vitl", "moge-v2-vits-normal",
-        "vggt", "vggt-commercial",
-        "omnivggt",
-    ])
+    @pytest.mark.parametrize(
+        "variant_id",
+        [
+            "depth-anything-v1-vits",
+            "depth-anything-v1-vitb",
+            "depth-anything-v1-vitl",
+            "depth-anything-v2-vits",
+            "depth-anything-v2-vitb",
+            "depth-anything-v2-vitl",
+            "depth-anything-v3-small",
+            "depth-anything-v3-large",
+            "zoedepth",
+            "midas-dpt-large",
+            "midas-beit-large",
+            "depth-pro",
+            "pixel-perfect-depth",
+            "marigold-dc",
+            "moge-v1",
+            "moge-v2-vitl",
+            "moge-v2-vits-normal",
+            "vggt",
+            "vggt-commercial",
+            "omnivggt",
+        ],
+    )
     def test_returns_processor(self, variant_id):
         """AutoProcessor should return a DepthProcessor for all variants."""
         processor = AutoProcessor.from_pretrained(variant_id)

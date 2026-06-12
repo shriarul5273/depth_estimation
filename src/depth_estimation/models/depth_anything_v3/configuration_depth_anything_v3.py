@@ -17,7 +17,7 @@ _V3_BACKBONE_CONFIGS = {
         "num_layers": 12,
         "features": 64,
         "out_channels": [48, 96, 192, 384],
-        "head_dim_in": 768,           # 2 × embed_dim  (cat_token=True)
+        "head_dim_in": 768,  # 2 × embed_dim  (cat_token=True)
         "out_layers": [5, 7, 9, 11],
         "alt_start": 4,
         "qknorm_start": 4,
@@ -33,7 +33,7 @@ _V3_BACKBONE_CONFIGS = {
         "num_layers": 12,
         "features": 128,
         "out_channels": [96, 192, 384, 768],
-        "head_dim_in": 1536,          # 2 × embed_dim
+        "head_dim_in": 1536,  # 2 × embed_dim
         "out_layers": [5, 7, 9, 11],
         "alt_start": 4,
         "qknorm_start": 4,
@@ -49,7 +49,7 @@ _V3_BACKBONE_CONFIGS = {
         "num_layers": 24,
         "features": 256,
         "out_channels": [256, 512, 1024, 1024],
-        "head_dim_in": 2048,          # 2 × embed_dim
+        "head_dim_in": 2048,  # 2 × embed_dim
         "out_layers": [11, 15, 19, 23],
         "alt_start": 8,
         "qknorm_start": 8,
@@ -65,7 +65,7 @@ _V3_BACKBONE_CONFIGS = {
         "num_layers": 40,
         "features": 256,
         "out_channels": [256, 512, 1024, 1024],
-        "head_dim_in": 3072,          # 2 × embed_dim
+        "head_dim_in": 3072,  # 2 × embed_dim
         "out_layers": [19, 27, 33, 39],
         "alt_start": 13,
         "qknorm_start": 13,
@@ -81,7 +81,7 @@ _V3_BACKBONE_CONFIGS = {
         "num_layers": 24,
         "features": 256,
         "out_channels": [256, 512, 1024, 1024],
-        "head_dim_in": 1024,          # embed_dim  (cat_token=False)
+        "head_dim_in": 1024,  # embed_dim  (cat_token=False)
         "out_layers": [4, 11, 17, 23],
         "alt_start": -1,
         "qknorm_start": -1,
@@ -97,7 +97,7 @@ _V3_BACKBONE_CONFIGS = {
         "num_layers": 24,
         "features": 256,
         "out_channels": [256, 512, 1024, 1024],
-        "head_dim_in": 1024,          # embed_dim  (cat_token=False)
+        "head_dim_in": 1024,  # embed_dim  (cat_token=False)
         "out_layers": [4, 11, 17, 23],
         "alt_start": -1,
         "qknorm_start": -1,

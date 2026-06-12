@@ -25,13 +25,9 @@ from .hub import download_file, get_cache_dir
 logger = logging.getLogger(__name__)
 
 _MAT_URL = (
-    "http://horatio.cs.nyu.edu/mit/silberman/"
-    "nyu_depth_v2/nyu_depth_v2_labeled.mat"
+    "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat"
 )
-_SPLIT_URL = (
-    "http://horatio.cs.nyu.edu/mit/silberman/"
-    "indoor_seg_sup/splits.mat"
-)
+_SPLIT_URL = "http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat"
 # Fallback split sizes when splits.mat is unavailable
 _N_TRAIN = 795
 _N_TOTAL = 1449
@@ -151,7 +147,7 @@ class NYUDepthV2Dataset(BaseDepthDataset):
         # h5py reads them transposed: images[i] → (C=3, W=640, H=480).
         # We transpose to standard (H, W, C) / (H, W).
         image = np.array(f["images"][idx]).transpose(2, 1, 0)  # (H=480, W=640, C=3)
-        depth = np.array(f["depths"][idx]).transpose(1, 0)      # (H=480, W=640)
+        depth = np.array(f["depths"][idx]).transpose(1, 0)  # (H=480, W=640)
 
         if image.dtype != np.uint8:
             image = np.clip(image, 0, 255).astype(np.uint8)
@@ -167,8 +163,5 @@ class NYUDepthV2Dataset(BaseDepthDataset):
 
     def __repr__(self) -> str:
         return (
-            f"NYUDepthV2Dataset("
-            f"split={self.split!r}, "
-            f"n={len(self)}, "
-            f"root={self.root})"
+            f"NYUDepthV2Dataset(split={self.split!r}, n={len(self)}, root={self.root})"
         )

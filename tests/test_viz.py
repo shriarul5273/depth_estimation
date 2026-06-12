@@ -49,6 +49,7 @@ def depth_output_with_color(depth_arr):
 # show_depth
 # ---------------------------------------------------------------------------
 
+
 class TestShowDepth:
     def test_accepts_depth_output(self, tmp_path, depth_output):
         show_depth(depth_output, save=str(tmp_path / "out.png"))
@@ -75,13 +76,18 @@ class TestShowDepth:
 # compare_depths
 # ---------------------------------------------------------------------------
 
+
 class TestCompareDepths:
     def test_multiple_depth_outputs(self, tmp_path, depth_output):
-        compare_depths([depth_output, depth_output, depth_output], save=str(tmp_path / "cmp.png"))
+        compare_depths(
+            [depth_output, depth_output, depth_output], save=str(tmp_path / "cmp.png")
+        )
         assert (tmp_path / "cmp.png").exists()
 
     def test_mixed_types(self, tmp_path, depth_output, depth_arr):
-        compare_depths([depth_output, depth_arr], labels=["A", "B"], save=str(tmp_path / "cmp.png"))
+        compare_depths(
+            [depth_output, depth_arr], labels=["A", "B"], save=str(tmp_path / "cmp.png")
+        )
         assert (tmp_path / "cmp.png").exists()
 
     def test_label_count_mismatch_raises(self, depth_output):
@@ -96,6 +102,7 @@ class TestCompareDepths:
 # ---------------------------------------------------------------------------
 # overlay_depth
 # ---------------------------------------------------------------------------
+
 
 class TestOverlayDepth:
     def test_output_shape(self, image_arr, depth_arr):
@@ -120,6 +127,7 @@ class TestOverlayDepth:
 # create_anaglyph
 # ---------------------------------------------------------------------------
 
+
 class TestCreateAnaglyph:
     def test_output_shape(self, image_arr, depth_arr):
         result = create_anaglyph(image_arr, depth_arr)
@@ -139,6 +147,7 @@ class TestCreateAnaglyph:
 # animate_3d
 # ---------------------------------------------------------------------------
 
+
 class TestAnimate3D:
     def test_gif_created(self, tmp_path, image_arr, depth_arr):
         out = str(tmp_path / "out.gif")
@@ -155,6 +164,7 @@ class TestAnimate3D:
 # plot_error_map
 # ---------------------------------------------------------------------------
 
+
 class TestPlotErrorMap:
     def test_abs_rel_smoke(self, tmp_path, depth_arr):
         pred = depth_arr
@@ -165,7 +175,9 @@ class TestPlotErrorMap:
     @pytest.mark.parametrize("metric", ["abs_rel", "sq_rel", "log10", "rmse"])
     def test_all_metrics(self, tmp_path, depth_arr, metric):
         gt = depth_arr * 0.8 + 0.1
-        plot_error_map(depth_arr, gt, metric=metric, save=str(tmp_path / f"{metric}.png"))
+        plot_error_map(
+            depth_arr, gt, metric=metric, save=str(tmp_path / f"{metric}.png")
+        )
         assert (tmp_path / f"{metric}.png").exists()
 
     def test_invalid_metric_raises(self, depth_arr):

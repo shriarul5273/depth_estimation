@@ -56,6 +56,7 @@ import torch
 # Alignment helper
 # ---------------------------------------------------------------------------
 
+
 def align_least_squares(
     pred: np.ndarray,
     target: np.ndarray,
@@ -81,8 +82,7 @@ def align_least_squares(
         return 1.0, 0.0
 
     # Normal equations: [[Σp², Σp], [Σp, n]] * [s, t]ᵀ = [Σp·g, Σg]ᵀ
-    A = np.array([[np.dot(p, p), p.sum()],
-                  [p.sum(),      len(p)]])
+    A = np.array([[np.dot(p, p), p.sum()], [p.sum(), len(p)]])
     b = np.array([np.dot(p, g), g.sum()])
 
     try:
@@ -96,6 +96,7 @@ def align_least_squares(
 # ---------------------------------------------------------------------------
 # Per-prediction metrics
 # ---------------------------------------------------------------------------
+
 
 class DepthMetrics:
     """Compute all 7 standard depth estimation metrics for one prediction.
@@ -165,35 +166,45 @@ class DepthMetrics:
         t = target[valid_mask].clamp(min=self.eps)
 
         if p.numel() == 0:
-            return {k: 0.0 for k in
-                    ("abs_rel", "sq_rel", "rmse", "rmse_log",
-                     "delta1", "delta2", "delta3")}
+            return {
+                k: 0.0
+                for k in (
+                    "abs_rel",
+                    "sq_rel",
+                    "rmse",
+                    "rmse_log",
+                    "delta1",
+                    "delta2",
+                    "delta3",
+                )
+            }
 
         diff = p - t
         thresh = torch.maximum(p / t, t / p)
 
-        abs_rel  = ((diff.abs()) / t).mean().item()
-        sq_rel   = ((diff ** 2) / t).mean().item()
-        rmse     = diff.pow(2).mean().sqrt().item()
+        abs_rel = ((diff.abs()) / t).mean().item()
+        sq_rel = ((diff**2) / t).mean().item()
+        rmse = diff.pow(2).mean().sqrt().item()
         rmse_log = (p.log() - t.log()).pow(2).mean().sqrt().item()
-        delta1   = (thresh < 1.25     ).float().mean().item()
-        delta2   = (thresh < 1.25 ** 2).float().mean().item()
-        delta3   = (thresh < 1.25 ** 3).float().mean().item()
+        delta1 = (thresh < 1.25).float().mean().item()
+        delta2 = (thresh < 1.25**2).float().mean().item()
+        delta3 = (thresh < 1.25**3).float().mean().item()
 
         return {
-            "abs_rel":  abs_rel,
-            "sq_rel":   sq_rel,
-            "rmse":     rmse,
+            "abs_rel": abs_rel,
+            "sq_rel": sq_rel,
+            "rmse": rmse,
             "rmse_log": rmse_log,
-            "delta1":   delta1,
-            "delta2":   delta2,
-            "delta3":   delta3,
+            "delta1": delta1,
+            "delta2": delta2,
+            "delta3": delta3,
         }
 
 
 # ---------------------------------------------------------------------------
 # Dataset-level accumulator
 # ---------------------------------------------------------------------------
+
 
 class Evaluator:
     """Accumulate depth metrics across batches for correct dataset-level RMSE.
@@ -222,14 +233,14 @@ class Evaluator:
 
     def reset(self) -> None:
         """Clear all accumulated state."""
-        self._sum_abs_rel  = 0.0
-        self._sum_sq_rel   = 0.0
-        self._sum_sq_err   = 0.0   # for RMSE: Σ(d - d̂)²
-        self._sum_sq_log   = 0.0   # for RMSE-log: Σ(log d - log d̂)²
-        self._sum_delta1   = 0.0
-        self._sum_delta2   = 0.0
-        self._sum_delta3   = 0.0
-        self._n_pixels     = 0
+        self._sum_abs_rel = 0.0
+        self._sum_sq_rel = 0.0
+        self._sum_sq_err = 0.0  # for RMSE: Σ(d - d̂)²
+        self._sum_sq_log = 0.0  # for RMSE-log: Σ(log d - log d̂)²
+        self._sum_delta1 = 0.0
+        self._sum_delta2 = 0.0
+        self._sum_delta3 = 0.0
+        self._n_pixels = 0
 
     def update(
         self,
@@ -244,13 +255,17 @@ class Evaluator:
             target:     Ground-truth depth, same shape, in metres.
             valid_mask: Boolean mask, same shape. Defaults to ``target > eps``.
         """
-        pred   = pred.squeeze(1).float()    if pred.dim()   == 4 else pred.float()
-        target = target.squeeze(1).float()  if target.dim() == 4 else target.float()
+        pred = pred.squeeze(1).float() if pred.dim() == 4 else pred.float()
+        target = target.squeeze(1).float() if target.dim() == 4 else target.float()
 
         if valid_mask is None:
             mask = target > self.eps
         else:
-            mask = valid_mask.squeeze(1).bool() if valid_mask.dim() == 4 else valid_mask.bool()
+            mask = (
+                valid_mask.squeeze(1).bool()
+                if valid_mask.dim() == 4
+                else valid_mask.bool()
+            )
             mask = mask & (target > self.eps)
 
         p = pred[mask].clamp(min=self.eps)
@@ -260,17 +275,17 @@ class Evaluator:
         if n == 0:
             return
 
-        diff   = p - t
+        diff = p - t
         thresh = torch.maximum(p / t, t / p)
 
         self._sum_abs_rel += (diff.abs() / t).sum().item()
-        self._sum_sq_rel  += ((diff ** 2) / t).sum().item()
-        self._sum_sq_err  += diff.pow(2).sum().item()
-        self._sum_sq_log  += (p.log() - t.log()).pow(2).sum().item()
-        self._sum_delta1  += (thresh < 1.25     ).float().sum().item()
-        self._sum_delta2  += (thresh < 1.25 ** 2).float().sum().item()
-        self._sum_delta3  += (thresh < 1.25 ** 3).float().sum().item()
-        self._n_pixels    += n
+        self._sum_sq_rel += ((diff**2) / t).sum().item()
+        self._sum_sq_err += diff.pow(2).sum().item()
+        self._sum_sq_log += (p.log() - t.log()).pow(2).sum().item()
+        self._sum_delta1 += (thresh < 1.25).float().sum().item()
+        self._sum_delta2 += (thresh < 1.25**2).float().sum().item()
+        self._sum_delta3 += (thresh < 1.25**3).float().sum().item()
+        self._n_pixels += n
 
     def compute(self) -> dict:
         """Return aggregated metrics over all :meth:`update` calls.
@@ -281,18 +296,28 @@ class Evaluator:
         """
         n = self._n_pixels
         if n == 0:
-            return {k: 0.0 for k in
-                    ("abs_rel", "sq_rel", "rmse", "rmse_log",
-                     "delta1", "delta2", "delta3", "n_pixels")}
+            return {
+                k: 0.0
+                for k in (
+                    "abs_rel",
+                    "sq_rel",
+                    "rmse",
+                    "rmse_log",
+                    "delta1",
+                    "delta2",
+                    "delta3",
+                    "n_pixels",
+                )
+            }
 
         return {
-            "abs_rel":  self._sum_abs_rel / n,
-            "sq_rel":   self._sum_sq_rel  / n,
-            "rmse":     math.sqrt(self._sum_sq_err  / n),
-            "rmse_log": math.sqrt(self._sum_sq_log  / n),
-            "delta1":   self._sum_delta1  / n,
-            "delta2":   self._sum_delta2  / n,
-            "delta3":   self._sum_delta3  / n,
+            "abs_rel": self._sum_abs_rel / n,
+            "sq_rel": self._sum_sq_rel / n,
+            "rmse": math.sqrt(self._sum_sq_err / n),
+            "rmse_log": math.sqrt(self._sum_sq_log / n),
+            "delta1": self._sum_delta1 / n,
+            "delta2": self._sum_delta2 / n,
+            "delta3": self._sum_delta3 / n,
             "n_pixels": n,
         }
 

@@ -6,7 +6,7 @@ Subclasses implement forward() with their specific network architecture.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 import torch
 import torch.nn as nn
@@ -197,8 +197,14 @@ class BaseDepthModel(nn.Module):
         backbone = self._backbone_module()
         backbone_ids = {id(p) for p in backbone.parameters()} if backbone else set()
 
-        decoder_params = [p for p in self.parameters() if id(p) not in backbone_ids and p.requires_grad]
-        backbone_params = [p for p in self.parameters() if id(p) in backbone_ids and p.requires_grad]
+        decoder_params = [
+            p
+            for p in self.parameters()
+            if id(p) not in backbone_ids and p.requires_grad
+        ]
+        backbone_params = [
+            p for p in self.parameters() if id(p) in backbone_ids and p.requires_grad
+        ]
 
         return [
             {"params": decoder_params, "lr_scale": 1.0},
@@ -229,7 +235,8 @@ class BaseDepthModel(nn.Module):
         # Handle both flat (block_chunks=0) and chunked (block_chunks>0) DINOv2
         if getattr(backbone, "chunked_blocks", False):
             all_blocks = [
-                b for chunk in backbone.blocks
+                b
+                for chunk in backbone.blocks
                 for b in chunk
                 if not isinstance(b, nn.Identity)
             ]

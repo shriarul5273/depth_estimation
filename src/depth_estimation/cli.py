@@ -26,7 +26,9 @@ def _die(msg: str) -> None:
     sys.exit(1)
 
 
-def _save_result(result, output_path: Path, fmt: str, source_path: Optional[Path] = None) -> None:
+def _save_result(
+    result, output_path: Path, fmt: str, source_path: Optional[Path] = None
+) -> None:
     """Save a DepthOutput to disk in the requested format."""
     import cv2
     import numpy as np
@@ -42,7 +44,9 @@ def _save_result(result, output_path: Path, fmt: str, source_path: Optional[Path
         np.save(str(npy_path), result.depth)
 
 
-def _resolve_output_path(source: Path, output_arg: Optional[str], output_dir: Optional[str]) -> Path:
+def _resolve_output_path(
+    source: Path, output_arg: Optional[str], output_dir: Optional[str]
+) -> Path:
     """Work out where to write the output file."""
     if output_arg:
         return Path(output_arg)
@@ -69,6 +73,7 @@ def _print_table(headers: List[str], rows: List[List[str]]) -> None:
 # predict
 # ---------------------------------------------------------------------------
 
+
 def _collect_images(source: str) -> List[Path]:
     """Expand source (file, directory, or glob) to a list of image paths."""
     import glob as _glob
@@ -81,9 +86,7 @@ def _collect_images(source: str) -> List[Path]:
     p = Path(source)
 
     if p.is_dir():
-        return sorted(
-            f for f in p.iterdir() if f.suffix.lower() in IMAGE_EXTENSIONS
-        )
+        return sorted(f for f in p.iterdir() if f.suffix.lower() in IMAGE_EXTENSIONS)
 
     if p.is_file():
         return [p]
@@ -117,6 +120,7 @@ def _run_predict(args: argparse.Namespace) -> None:
         print(f"Loading model: {model_id}")
 
     from depth_estimation import pipeline as _pipeline
+
     pipe = _pipeline("depth-estimation", model=model_id, device=device)
 
     if output_dir:
@@ -128,17 +132,30 @@ def _run_predict(args: argparse.Namespace) -> None:
         batch_paths = image_paths[i : i + batch_size]
         batch_inputs = [str(p) for p in batch_paths]
 
-        results = pipe(batch_inputs, batch_size=batch_size, colorize=(fmt in ("png", "both")), colormap=colormap)
+        results = pipe(
+            batch_inputs,
+            batch_size=batch_size,
+            colorize=(fmt in ("png", "both")),
+            colormap=colormap,
+        )
 
         if not isinstance(results, list):
             results = [results]
 
         for path, result in zip(batch_paths, results):
-            out_path = _resolve_output_path(path, output_arg if total == 1 else None, output_dir)
+            out_path = _resolve_output_path(
+                path, output_arg if total == 1 else None, output_dir
+            )
             _save_result(result, out_path, fmt, source_path=path)
             if not quiet:
-                saved = out_path.with_suffix(".png") if fmt in ("png", "both") else out_path.with_suffix(".npy")
-                print(f"  [{i + batch_paths.index(path) + 1}/{total}] {path.name} -> {saved}")
+                saved = (
+                    out_path.with_suffix(".png")
+                    if fmt in ("png", "both")
+                    else out_path.with_suffix(".npy")
+                )
+                print(
+                    f"  [{i + batch_paths.index(path) + 1}/{total}] {path.name} -> {saved}"
+                )
 
 
 def _run_predict_video(
@@ -153,12 +170,17 @@ def _run_predict_video(
     import cv2
     import numpy as np
 
-    out_video_path = Path(output_arg) if output_arg else src_path.parent / (src_path.stem + "_depth.mp4")
+    out_video_path = (
+        Path(output_arg)
+        if output_arg
+        else src_path.parent / (src_path.stem + "_depth.mp4")
+    )
 
     if not quiet:
         print(f"Loading model: {model_id}")
 
     from depth_estimation import pipeline as _pipeline
+
     pipe = _pipeline("depth-estimation", model=model_id, device=device)
 
     cap = cv2.VideoCapture(str(src_path))
@@ -213,10 +235,10 @@ def _run_predict_video(
 # list-models
 # ---------------------------------------------------------------------------
 
+
 def _run_list_models(args: argparse.Namespace) -> None:
     # Import triggers all model self-registrations
     from depth_estimation import MODEL_REGISTRY
-    import depth_estimation
 
     variants = MODEL_REGISTRY.list_variants()
 
@@ -225,13 +247,19 @@ def _run_list_models(args: argparse.Namespace) -> None:
         for v in sorted(variants):
             model_type = MODEL_REGISTRY.resolve_model_type(v)
             config_cls = MODEL_REGISTRY.get_config_cls(v)
-            cfg = config_cls() if not hasattr(config_cls, "from_variant") else config_cls.from_variant(v)
-            rows.append({
-                "variant": v,
-                "model_type": model_type,
-                "is_metric": getattr(cfg, "is_metric", False),
-                "backbone": getattr(cfg, "backbone", "—"),
-            })
+            cfg = (
+                config_cls()
+                if not hasattr(config_cls, "from_variant")
+                else config_cls.from_variant(v)
+            )
+            rows.append(
+                {
+                    "variant": v,
+                    "model_type": model_type,
+                    "is_metric": getattr(cfg, "is_metric", False),
+                    "backbone": getattr(cfg, "backbone", "—"),
+                }
+            )
         print(json.dumps(rows, indent=2))
         return
 
@@ -241,7 +269,11 @@ def _run_list_models(args: argparse.Namespace) -> None:
         model_type = MODEL_REGISTRY.resolve_model_type(v)
         config_cls = MODEL_REGISTRY.get_config_cls(v)
         try:
-            cfg = config_cls.from_variant(v) if hasattr(config_cls, "from_variant") else config_cls()
+            cfg = (
+                config_cls.from_variant(v)
+                if hasattr(config_cls, "from_variant")
+                else config_cls()
+            )
         except Exception:
             cfg = config_cls()
         depth_type = "metric" if getattr(cfg, "is_metric", False) else "relative"
@@ -249,16 +281,18 @@ def _run_list_models(args: argparse.Namespace) -> None:
         rows.append([v, model_type, depth_type, backbone])
 
     _print_table(headers, rows)
-    print(f"\n{len(variants)} variants across {len(MODEL_REGISTRY.list_model_types())} model families.")
+    print(
+        f"\n{len(variants)} variants across {len(MODEL_REGISTRY.list_model_types())} model families."
+    )
 
 
 # ---------------------------------------------------------------------------
 # info
 # ---------------------------------------------------------------------------
 
+
 def _run_info(args: argparse.Namespace) -> None:
     from depth_estimation import MODEL_REGISTRY
-    import depth_estimation
 
     model_id = args.model_id
 
@@ -269,7 +303,11 @@ def _run_info(args: argparse.Namespace) -> None:
 
     config_cls = MODEL_REGISTRY.get_config_cls(model_id)
     try:
-        cfg = config_cls.from_variant(model_id) if hasattr(config_cls, "from_variant") else config_cls()
+        cfg = (
+            config_cls.from_variant(model_id)
+            if hasattr(config_cls, "from_variant")
+            else config_cls()
+        )
     except Exception:
         cfg = config_cls()
 
@@ -404,13 +442,13 @@ def _run_evaluate(args: argparse.Namespace) -> None:
     print(f"  {'Metric':<14}  {'Value':>10}  Direction")
     print(f"  {'──────':<14}  {'─────':>10}  ─────────")
     for metric, direction in [
-        ("abs_rel",  "lower ↓"),
-        ("sq_rel",   "lower ↓"),
-        ("rmse",     "lower ↓"),
+        ("abs_rel", "lower ↓"),
+        ("sq_rel", "lower ↓"),
+        ("rmse", "lower ↓"),
         ("rmse_log", "lower ↓"),
-        ("delta1",   "higher ↑"),
-        ("delta2",   "higher ↑"),
-        ("delta3",   "higher ↑"),
+        ("delta1", "higher ↑"),
+        ("delta2", "higher ↑"),
+        ("delta3", "higher ↑"),
     ]:
         print(f"  {metric:<14}  {results[metric]:>10.4f}  {direction}")
     print(f"{'─' * 55}")
@@ -437,13 +475,20 @@ def _save_json(data: dict, path: str) -> None:
 # Argument parser
 # ---------------------------------------------------------------------------
 
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="depth-estimate",
         description="depth_estimation CLI — run depth estimation models from the command line.",
     )
-    parser.add_argument("--device", default=None, help="Device: cuda, cpu, mps (auto-detected if omitted).")
-    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress progress output.")
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="Device: cuda, cpu, mps (auto-detected if omitted).",
+    )
+    parser.add_argument(
+        "--quiet", "-q", action="store_true", help="Suppress progress output."
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging.")
 
     sub = parser.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
@@ -454,12 +499,25 @@ def _build_parser() -> argparse.ArgumentParser:
         "predict",
         help="Run depth estimation on an image, directory, glob, or video.",
     )
-    p_predict.add_argument("source", help="Image path, directory, glob pattern (quoted), or video file.")
-    p_predict.add_argument("--model", "-m", required=True, help="Model variant ID (e.g. depth-anything-v2-vitb).")
-    p_predict.add_argument("--output", "-o", default=None, help="Output file path (single image / video).")
-    p_predict.add_argument("--output-dir", default=None, help="Output directory for batch predictions.")
     p_predict.add_argument(
-        "--colormap", default="Spectral_r", help="Matplotlib colormap name (default: Spectral_r)."
+        "source", help="Image path, directory, glob pattern (quoted), or video file."
+    )
+    p_predict.add_argument(
+        "--model",
+        "-m",
+        required=True,
+        help="Model variant ID (e.g. depth-anything-v2-vitb).",
+    )
+    p_predict.add_argument(
+        "--output", "-o", default=None, help="Output file path (single image / video)."
+    )
+    p_predict.add_argument(
+        "--output-dir", default=None, help="Output directory for batch predictions."
+    )
+    p_predict.add_argument(
+        "--colormap",
+        default="Spectral_r",
+        help="Matplotlib colormap name (default: Spectral_r).",
     )
     p_predict.add_argument(
         "--format",
@@ -467,15 +525,24 @@ def _build_parser() -> argparse.ArgumentParser:
         default="png",
         help="Output format: png (colored), npy (raw float32), or both (default: png).",
     )
-    p_predict.add_argument("--batch-size", type=int, default=1, help="Batch size for image processing (default: 1).")
+    p_predict.add_argument(
+        "--batch-size",
+        type=int,
+        default=1,
+        help="Batch size for image processing (default: 1).",
+    )
 
     # ---- list-models ----
     p_list = sub.add_parser("list-models", help="List all available model variants.")
     p_list.add_argument("--json", action="store_true", help="Output as JSON.")
 
     # ---- info ----
-    p_info = sub.add_parser("info", help="Show configuration details for a model variant.")
-    p_info.add_argument("model_id", help="Model variant ID (e.g. depth-anything-v2-vitb).")
+    p_info = sub.add_parser(
+        "info", help="Show configuration details for a model variant."
+    )
+    p_info.add_argument(
+        "model_id", help="Model variant ID (e.g. depth-anything-v2-vitb)."
+    )
     p_info.add_argument("--json", action="store_true", help="Output as JSON.")
 
     # ---- evaluate ----
@@ -484,12 +551,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Evaluate a model on a standard depth benchmark.",
     )
     p_eval.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default="depth-anything-v2-vitb",
         help="Model variant ID (default: depth-anything-v2-vitb). Ignored with --compare.",
     )
     p_eval.add_argument(
-        "--dataset", "-d",
+        "--dataset",
+        "-d",
         required=True,
         choices=_DATASET_CHOICES,
         metavar="DATASET",
@@ -559,7 +628,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Maximum valid depth in metres.",
     )
     p_eval.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default=None,
         metavar="FILE",
         help="Save results to a JSON file.",
@@ -577,12 +647,14 @@ def _build_parser() -> argparse.ArgumentParser:
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
     if args.verbose:
         import logging
+
         logging.basicConfig(level=logging.INFO)
 
     dispatch = {

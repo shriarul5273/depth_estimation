@@ -19,13 +19,13 @@ import logging
 import math
 from typing import Any, Dict, Optional, Tuple, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ...modeling_utils import BaseDepthModel, _auto_detect_device
+from ...modeling_utils import BaseDepthModel
 from .configuration_ppd import PixelPerfectDepthConfig
+
 # Reuse the already-inlined DINOv2 backbone from depth_anything_v2
 from ..depth_anything_v2.modeling_depth_anything_v2 import (
     DinoVisionTransformer,
@@ -97,7 +97,9 @@ class _PatchEmbed(nn.Module):
     ):
         super().__init__()
         image_HW = (img_size, img_size) if isinstance(img_size, int) else img_size
-        patch_HW = (patch_size, patch_size) if isinstance(patch_size, int) else patch_size
+        patch_HW = (
+            (patch_size, patch_size) if isinstance(patch_size, int) else patch_size
+        )
         patch_grid_size = (image_HW[0] // patch_HW[0], image_HW[1] // patch_HW[1])
 
         self.img_size = image_HW
@@ -108,14 +110,20 @@ class _PatchEmbed(nn.Module):
         self.embed_dim = embed_dim
         self.flatten_embedding = flatten_embedding
 
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW)
+        self.proj = nn.Conv2d(
+            in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW
+        )
         self.norm = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         _, _, H, W = x.shape
         patch_H, patch_W = self.patch_size
-        assert H % patch_H == 0, f"Input height {H} is not a multiple of patch height {patch_H}"
-        assert W % patch_W == 0, f"Input width {W} is not a multiple of patch width {patch_W}"
+        assert H % patch_H == 0, (
+            f"Input height {H} is not a multiple of patch height {patch_H}"
+        )
+        assert W % patch_W == 0, (
+            f"Input width {W} is not a multiple of patch width {patch_W}"
+        )
         x = self.proj(x)
         H, W = x.size(2), x.size(3)
         x = x.flatten(2).transpose(1, 2)
@@ -169,12 +177,15 @@ class _RotaryPositionEmbedding2D(nn.Module):
         cache_key = (dim, seq_len, device, dtype)
         if cache_key not in self.frequency_cache:
             exponents = torch.arange(0, dim, 2, device=device).float() / dim
-            inv_freq = 1.0 / (self.base_frequency ** exponents)
+            inv_freq = 1.0 / (self.base_frequency**exponents)
             positions = torch.arange(seq_len, device=device, dtype=inv_freq.dtype)
             angles = torch.einsum("i,j->ij", positions, inv_freq)
             angles = angles.to(dtype)
             angles = torch.cat((angles, angles), dim=-1)
-            self.frequency_cache[cache_key] = (angles.cos().to(dtype), angles.sin().to(dtype))
+            self.frequency_cache[cache_key] = (
+                angles.cos().to(dtype),
+                angles.sin().to(dtype),
+            )
         return self.frequency_cache[cache_key]
 
     @staticmethod
@@ -241,7 +252,7 @@ class _Attention(nn.Module):
         assert dim % num_heads == 0
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
         self.fused_attn = fused_attn
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
@@ -252,9 +263,15 @@ class _Attention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
         self.rope = rope
 
-    def forward(self, x: torch.Tensor, pos: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, pos: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, self.head_dim)
+            .permute(2, 0, 3, 1, 4)
+        )
         q, k, v = qkv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
 
@@ -264,7 +281,9 @@ class _Attention(nn.Module):
 
         if self.fused_attn:
             x = F.scaled_dot_product_attention(
-                q, k, v,
+                q,
+                k,
+                v,
                 dropout_p=self.attn_drop.p if self.training else 0.0,
             )
         else:
@@ -285,7 +304,9 @@ class _Attention(nn.Module):
 # ============================================================================ #
 
 
-def _modulate(x: torch.Tensor, shift: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
+def _modulate(
+    x: torch.Tensor, shift: torch.Tensor, scale: torch.Tensor
+) -> torch.Tensor:
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
 
 
@@ -305,7 +326,9 @@ class _TimestepEmbedder(nn.Module):
         self.frequency_embedding_size = frequency_embedding_size
 
     @staticmethod
-    def timestep_embedding(t: torch.Tensor, dim: int, max_period: int = 10000) -> torch.Tensor:
+    def timestep_embedding(
+        t: torch.Tensor, dim: int, max_period: int = 10000
+    ) -> torch.Tensor:
         half = dim // 2
         freqs = torch.exp(
             -math.log(max_period)
@@ -315,7 +338,9 @@ class _TimestepEmbedder(nn.Module):
         args = t[:, None].float() * freqs[None]
         embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
         if dim % 2:
-            embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+            embedding = torch.cat(
+                [embedding, torch.zeros_like(embedding[:, :1])], dim=-1
+            )
         return embedding
 
     def forward(self, t: torch.Tensor) -> torch.Tensor:
@@ -381,7 +406,9 @@ class _FinalLayer(nn.Module):
     def __init__(self, hidden_size: int, patch_size: int, out_channels: int):
         super().__init__()
         self.norm_final = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.linear = nn.Linear(hidden_size, patch_size * patch_size * out_channels, bias=True)
+        self.linear = nn.Linear(
+            hidden_size, patch_size * patch_size * out_channels, bias=True
+        )
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(), nn.Linear(hidden_size, 2 * hidden_size, bias=True)
         )
@@ -524,7 +551,7 @@ class _DiT(nn.Module):
                 x = x.reshape(shape=(N, D, (H // p) * 2, (W // p) * 2))
                 x = x.flatten(2).transpose(1, 2)  # (N, T', D) where T' = (H//8)*(W//8)
 
-        x = self.final_layer(x, t)          # (N, T', p*p*C)
+        x = self.final_layer(x, t)  # (N, T', p*p*C)
         x = self.unpatchify(x, height=H, width=W)  # (N, 1, H, W)
         return x
 
@@ -575,7 +602,9 @@ class _Timesteps:
 
     def __init__(self, T: int, steps: int, device: torch.device = "cpu"):
         self.T = T
-        self.timesteps = torch.arange(T, -1, -(T + 1) / steps, device=device).round().int()
+        self.timesteps = (
+            torch.arange(T, -1, -(T + 1) / steps, device=device).round().int()
+        )
 
     def __len__(self) -> int:
         return len(self.timesteps)
@@ -634,7 +663,9 @@ class _EulerSampler:
         curr_idx = self.timesteps.index(t)
         next_idx = curr_idx + 1
         s = self.timesteps[next_idx.clamp_max(steps - 1)]
-        return s.where(next_idx < steps, torch.tensor(-1, device=t.device, dtype=s.dtype))
+        return s.where(
+            next_idx < steps, torch.tensor(-1, device=t.device, dtype=s.dtype)
+        )
 
 
 # ============================================================================ #
@@ -718,7 +749,9 @@ class _PixelPerfectDepthNet(nn.Module):
         self._sampler_steps: int = -1
 
     def _build_sampler(self, steps: int, device: torch.device):
-        self._sampling_timesteps = _Timesteps(T=self._schedule.T, steps=steps, device=device)
+        self._sampling_timesteps = _Timesteps(
+            T=self._schedule.T, steps=steps, device=device
+        )
         self._sampler = _EulerSampler(
             schedule=self._schedule,
             timesteps=self._sampling_timesteps,
@@ -728,7 +761,11 @@ class _PixelPerfectDepthNet(nn.Module):
         self._sampler_steps = steps
 
     def _ensure_sampler(self, steps: int, device: torch.device):
-        if self._sampler is None or self._sampler_steps != steps or self._sampler_device != device:
+        if (
+            self._sampler is None
+            or self._sampler_steps != steps
+            or self._sampler_device != device
+        ):
             self._build_sampler(steps, device)
 
     @torch.no_grad()
@@ -745,14 +782,12 @@ class _PixelPerfectDepthNet(nn.Module):
         device = image.device
         self._ensure_sampler(steps, device)
 
-        semantics = self.semantics_encoder(image)      # (1, T, 1024)
-        cond = image - 0.5                              # (1, 3, H, W)
-        latent = torch.randn(
-            1, 1, image.shape[2], image.shape[3], device=device
-        )
+        semantics = self.semantics_encoder(image)  # (1, T, 1024)
+        cond = image - 0.5  # (1, 3, H, W)
+        latent = torch.randn(1, 1, image.shape[2], image.shape[3], device=device)
 
         for timestep in self._sampling_timesteps:
-            x_in = torch.cat([latent, cond], dim=1)    # (1, 4, H, W)
+            x_in = torch.cat([latent, cond], dim=1)  # (1, 4, H, W)
             pred = self.dit(x=x_in, semantics=semantics, timestep=timestep)
             latent = self._sampler.step(pred=pred, x_t=latent, t=timestep)
 
@@ -777,7 +812,9 @@ class _PixelPerfectDepthNet(nn.Module):
         steps = sampling_steps or self.sampling_steps
         device = image.device
         use_autocast = use_fp16 and device.type == "cuda"
-        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_autocast):
+        with torch.autocast(
+            device_type=device.type, dtype=torch.float16, enabled=use_autocast
+        ):
             return self._forward_test(image, steps)
 
 
@@ -904,10 +941,11 @@ class PixelPerfectDepthModel(BaseDepthModel):
             repo_type="model",
         )
         da_v2_state = torch.load(da_v2_path, map_location="cpu")
-        missing, unexpected = net.semantics_encoder.load_state_dict(da_v2_state, strict=False)
+        missing, unexpected = net.semantics_encoder.load_state_dict(
+            da_v2_state, strict=False
+        )
         logger.info(
-            "Loaded DA-V2 ViT-L semantics encoder from %s "
-            "(missing=%d, unexpected=%d)",
+            "Loaded DA-V2 ViT-L semantics encoder from %s (missing=%d, unexpected=%d)",
             config.semantics_hub_repo_id,
             len(missing),
             len(unexpected),

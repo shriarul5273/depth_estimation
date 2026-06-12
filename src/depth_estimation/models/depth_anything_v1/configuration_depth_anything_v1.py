@@ -4,7 +4,7 @@ DepthAnythingV1Config — Configuration for Depth Anything v1 models.
 Inherits from BaseDepthConfig and only overrides default values per variant.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from ...configuration_utils import BaseDepthConfig
 

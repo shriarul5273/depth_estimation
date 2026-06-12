@@ -26,6 +26,7 @@ from depth_estimation.data.transforms import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _sample(h=64, w=80, seed=0):
     """Return a (pixel_values, depth_map, valid_mask) tuple."""
     g = torch.Generator()
@@ -44,6 +45,7 @@ def _shapes(pv, dm, vm):
 # Compose
 # ---------------------------------------------------------------------------
 
+
 class TestCompose:
     def test_identity_compose(self):
         pv, dm, vm = _sample()
@@ -55,10 +57,12 @@ class TestCompose:
     def test_chaining_order(self):
         """Transforms should be applied left-to-right."""
         calls = []
+
         def make_t(n):
             def t(pv, dm, vm):
                 calls.append(n)
                 return pv, dm, vm
+
             return t
 
         pv, dm, vm = _sample()
@@ -74,15 +78,16 @@ class TestCompose:
 # PairedResize
 # ---------------------------------------------------------------------------
 
+
 class TestPairedResize:
     def test_shorter_side_becomes_target(self):
-        pv, dm, vm = _sample(h=40, w=80)   # shorter = 40
+        pv, dm, vm = _sample(h=40, w=80)  # shorter = 40
         t = PairedResize(size=32)
         pv2, dm2, vm2 = t(pv, dm, vm)
         assert min(pv2.shape[-2], pv2.shape[-1]) == 32
 
     def test_aspect_ratio_preserved(self):
-        pv, dm, vm = _sample(h=40, w=80)   # 1:2 ratio
+        pv, dm, vm = _sample(h=40, w=80)  # 1:2 ratio
         t = PairedResize(size=32)
         pv2, dm2, vm2 = t(pv, dm, vm)
         h2, w2 = pv2.shape[-2], pv2.shape[-1]
@@ -112,6 +117,7 @@ class TestPairedResize:
 # PairedRandomCrop
 # ---------------------------------------------------------------------------
 
+
 class TestPairedRandomCrop:
     def test_output_size_int(self):
         pv, dm, vm = _sample(h=64, w=64)
@@ -128,7 +134,12 @@ class TestPairedRandomCrop:
     def test_all_three_same_crop(self):
         """depth and mask should come from the same crop as pixel_values."""
         # Use all-identical tensors so we can verify consistency
-        pv = torch.arange(64 * 64, dtype=torch.float32).reshape(1, 64, 64).expand(3, -1, -1).clone()
+        pv = (
+            torch.arange(64 * 64, dtype=torch.float32)
+            .reshape(1, 64, 64)
+            .expand(3, -1, -1)
+            .clone()
+        )
         dm = torch.arange(64 * 64, dtype=torch.float32).reshape(1, 64, 64)
         vm = torch.ones(1, 64, 64, dtype=torch.bool)
 
@@ -145,6 +156,7 @@ class TestPairedRandomCrop:
 # ---------------------------------------------------------------------------
 # PairedCenterCrop
 # ---------------------------------------------------------------------------
+
 
 class TestPairedCenterCrop:
     def test_output_size(self):
@@ -169,6 +181,7 @@ class TestPairedCenterCrop:
 # ---------------------------------------------------------------------------
 # PairedRandomHorizontalFlip
 # ---------------------------------------------------------------------------
+
 
 class TestPairedRandomHorizontalFlip:
     def test_p0_never_flips(self):
@@ -198,6 +211,7 @@ class TestPairedRandomHorizontalFlip:
 # ---------------------------------------------------------------------------
 # PairedRandomScale
 # ---------------------------------------------------------------------------
+
 
 class TestPairedRandomScale:
     def test_output_shape_within_range(self):
@@ -247,6 +261,7 @@ class TestPairedRandomScale:
 # PairedColorJitter
 # ---------------------------------------------------------------------------
 
+
 class TestPairedColorJitter:
     def test_depth_and_mask_unchanged(self):
         pv, dm, vm = _sample()
@@ -274,6 +289,7 @@ class TestPairedColorJitter:
 # PairedNormalize
 # ---------------------------------------------------------------------------
 
+
 class TestPairedNormalize:
     def test_depth_and_mask_unchanged(self):
         pv, dm, vm = _sample()
@@ -285,7 +301,7 @@ class TestPairedNormalize:
     def test_imagenet_normalization(self):
         """After ImageNet normalization, mean should be near 0."""
         mean = [0.485, 0.456, 0.406]
-        std  = [0.229, 0.224, 0.225]
+        std = [0.229, 0.224, 0.225]
         # Create a 1×1 image with exact ImageNet mean — result should be ~0
         pv = torch.tensor(mean).reshape(3, 1, 1)
         dm = torch.ones(1, 1, 1)
@@ -298,6 +314,7 @@ class TestPairedNormalize:
 # ---------------------------------------------------------------------------
 # get_train_transforms / get_val_transforms
 # ---------------------------------------------------------------------------
+
 
 class TestTransformPresets:
     @pytest.mark.parametrize("input_size", [224, 384, 518])
@@ -342,5 +359,6 @@ class TestTransformPresets:
 
     def test_train_returns_compose(self):
         from depth_estimation.data.transforms import Compose
+
         assert isinstance(get_train_transforms(), Compose)
         assert isinstance(get_val_transforms(), Compose)

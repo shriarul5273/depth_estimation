@@ -61,8 +61,8 @@ logger = logging.getLogger(__name__)
 
 _SPLIT_URLS = {
     "train": "https://raw.githubusercontent.com/cleinc/bts/master/pytorch/filenames/eigen_train_files_with_gt.txt",
-    "val":   "https://raw.githubusercontent.com/cleinc/bts/master/pytorch/filenames/eigen_val_files_with_gt.txt",
-    "test":  "https://raw.githubusercontent.com/cleinc/bts/master/pytorch/filenames/eigen_test_files_with_gt.txt",
+    "val": "https://raw.githubusercontent.com/cleinc/bts/master/pytorch/filenames/eigen_val_files_with_gt.txt",
+    "test": "https://raw.githubusercontent.com/cleinc/bts/master/pytorch/filenames/eigen_test_files_with_gt.txt",
 }
 
 
@@ -158,8 +158,8 @@ class KITTIEigenDataset(BaseDepthDataset):
                     continue
                 parts = line.split()
                 # Format: "date/sequence  frame_id  side  [gt_path]"
-                seq_dir = parts[0]       # e.g. 2011_09_26/2011_09_26_drive_0001_sync
-                frame_id = parts[1]      # e.g. 0000000005
+                seq_dir = parts[0]  # e.g. 2011_09_26/2011_09_26_drive_0001_sync
+                frame_id = parts[1]  # e.g. 0000000005
                 side = parts[2] if len(parts) > 2 else "l"
                 gt_rel = parts[3] if len(parts) > 3 else None
 
@@ -214,8 +214,5 @@ class KITTIEigenDataset(BaseDepthDataset):
 
     def __repr__(self) -> str:
         return (
-            f"KITTIEigenDataset("
-            f"split={self.split!r}, "
-            f"n={len(self)}, "
-            f"root={self.root})"
+            f"KITTIEigenDataset(split={self.split!r}, n={len(self)}, root={self.root})"
         )

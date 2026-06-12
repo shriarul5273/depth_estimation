@@ -47,7 +47,9 @@ class TestPreprocess:
         assert result["pixel_values"].shape[0] == 2
         assert len(result["original_sizes"]) == 2
 
-    def test_output_dimensions_multiple_of_patch_size(self, processor, sample_image_rgb):
+    def test_output_dimensions_multiple_of_patch_size(
+        self, processor, sample_image_rgb
+    ):
         result = processor.preprocess(sample_image_rgb)
         h, w = result["pixel_values"].shape[2], result["pixel_values"].shape[3]
         assert h % processor.patch_size == 0

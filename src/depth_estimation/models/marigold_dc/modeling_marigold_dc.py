@@ -8,7 +8,7 @@ Requires: ``diffusers>=0.25``
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from PIL import Image
 
 from ...modeling_utils import BaseDepthModel, _auto_detect_device
-from .configuration_marigold_dc import MarigoldDCConfig, _MARIGOLD_DC_VARIANT_MAP
+from .configuration_marigold_dc import MarigoldDCConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 def _check_diffusers_available():
     try:
         from diffusers import MarigoldDepthPipeline, DDIMScheduler
+
         return True
     except ImportError:
         return False
@@ -121,10 +122,16 @@ class MarigoldDCModel(BaseDepthModel):
 
             depth_tensor = torch.from_numpy(depth_map).float()
             if depth_tensor.shape != (h, w):
-                depth_tensor = F.interpolate(
-                    depth_tensor.unsqueeze(0).unsqueeze(0),
-                    size=(h, w), mode="bilinear", align_corners=False,
-                ).squeeze(0).squeeze(0)
+                depth_tensor = (
+                    F.interpolate(
+                        depth_tensor.unsqueeze(0).unsqueeze(0),
+                        size=(h, w),
+                        mode="bilinear",
+                        align_corners=False,
+                    )
+                    .squeeze(0)
+                    .squeeze(0)
+                )
             depths.append(depth_tensor)
 
         return torch.stack(depths)
@@ -155,7 +162,6 @@ class MarigoldDCModel(BaseDepthModel):
             Dense depth prediction as numpy array (H, W).
         """
         self._ensure_pipe()
-        from diffusers import DDIMScheduler
 
         device = self._pipe._execution_device
         generator = torch.Generator(device=device).manual_seed(seed)
@@ -166,17 +172,21 @@ class MarigoldDCModel(BaseDepthModel):
         with torch.no_grad():
             if pipe.empty_text_embedding is None:
                 text_inputs = pipe.tokenizer(
-                    "", padding="do_not_pad",
+                    "",
+                    padding="do_not_pad",
                     max_length=pipe.tokenizer.model_max_length,
-                    truncation=True, return_tensors="pt",
+                    truncation=True,
+                    return_tensors="pt",
                 )
                 text_input_ids = text_inputs.input_ids.to(device)
                 pipe.empty_text_embedding = pipe.text_encoder(text_input_ids)[0]
 
         # Preprocess
         image_t, padding, original_resolution = pipe.image_processor.preprocess(
-            image, processing_resolution=processing_resolution,
-            device=device, dtype=pipe.dtype,
+            image,
+            processing_resolution=processing_resolution,
+            device=device,
+            dtype=pipe.dtype,
         )
 
         # Encode image
@@ -189,11 +199,13 @@ class MarigoldDCModel(BaseDepthModel):
         # Sparse depth setup
         sparse_depth_t = torch.from_numpy(sparse_depth)[None, None].float().to(device)
         sparse_mask = sparse_depth_t > 0
-        sparse_range = (sparse_depth_t[sparse_mask].max() - sparse_depth_t[sparse_mask].min()).item()
+        sparse_range = (
+            sparse_depth_t[sparse_mask].max() - sparse_depth_t[sparse_mask].min()
+        ).item()
         sparse_lower = sparse_depth_t[sparse_mask].min().item()
 
         def affine_to_metric(depth):
-            return (scale ** 2) * sparse_range * depth + (shift ** 2) * sparse_lower
+            return (scale**2) * sparse_range * depth + (shift**2) * sparse_lower
 
         def latent_to_metric(latent):
             pred = pipe.decode_prediction(latent)
@@ -208,24 +220,27 @@ class MarigoldDCModel(BaseDepthModel):
 
         ensemble_predictions = []
         for eidx in range(ensemble_size):
-            cur_img_lat = image_latent[eidx:eidx + 1]
-            cur_pred_lat = pred_latent[eidx:eidx + 1]
+            cur_img_lat = image_latent[eidx : eidx + 1]
+            cur_pred_lat = pred_latent[eidx : eidx + 1]
 
             scale = torch.nn.Parameter(torch.ones(1, device=device))
             shift = torch.nn.Parameter(torch.ones(1, device=device))
             cur_pred_lat = torch.nn.Parameter(cur_pred_lat)
 
-            optimizer = torch.optim.Adam([
-                {"params": [scale, shift], "lr": 0.005},
-                {"params": [cur_pred_lat], "lr": 0.05},
-            ])
+            optimizer = torch.optim.Adam(
+                [
+                    {"params": [scale, shift], "lr": 0.005},
+                    {"params": [cur_pred_lat], "lr": 0.05},
+                ]
+            )
 
             for _, t in enumerate(pipe.scheduler.timesteps):
                 optimizer.zero_grad()
 
                 batch_lat = torch.cat([cur_img_lat, cur_pred_lat], dim=1)
                 noise = pipe.unet(
-                    batch_lat, t,
+                    batch_lat,
+                    t,
                     encoder_hidden_states=pipe.empty_text_embedding,
                     return_dict=False,
                 )[0]
@@ -233,16 +248,17 @@ class MarigoldDCModel(BaseDepthModel):
                 with torch.no_grad():
                     alpha_t = pipe.scheduler.alphas_cumprod[t]
                     beta_t = 1 - alpha_t
-                    pred_eps = (alpha_t ** 0.5) * noise + (beta_t ** 0.5) * cur_pred_lat
+                    pred_eps = (alpha_t**0.5) * noise + (beta_t**0.5) * cur_pred_lat
 
-                step_out = pipe.scheduler.step(noise, t, cur_pred_lat, generator=generator)
+                step_out = pipe.scheduler.step(
+                    noise, t, cur_pred_lat, generator=generator
+                )
                 pred_orig = step_out.pred_original_sample
 
                 metric_est = latent_to_metric(pred_orig)
-                loss = (
-                    F.l1_loss(metric_est[sparse_mask], sparse_depth_t[sparse_mask])
-                    + F.mse_loss(metric_est[sparse_mask], sparse_depth_t[sparse_mask])
-                )
+                loss = F.l1_loss(
+                    metric_est[sparse_mask], sparse_depth_t[sparse_mask]
+                ) + F.mse_loss(metric_est[sparse_mask], sparse_depth_t[sparse_mask])
                 loss.backward()
 
                 with torch.no_grad():

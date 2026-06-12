@@ -109,9 +109,11 @@ class PairedRandomCrop:
             )
         top = random.randint(0, h - self.crop_h)
         left = random.randint(0, w - self.crop_w)
-        pixel_values = pixel_values[:, top:top + self.crop_h, left:left + self.crop_w]
-        depth_map = depth_map[:, top:top + self.crop_h, left:left + self.crop_w]
-        valid_mask = valid_mask[:, top:top + self.crop_h, left:left + self.crop_w]
+        pixel_values = pixel_values[
+            :, top : top + self.crop_h, left : left + self.crop_w
+        ]
+        depth_map = depth_map[:, top : top + self.crop_h, left : left + self.crop_w]
+        valid_mask = valid_mask[:, top : top + self.crop_h, left : left + self.crop_w]
         return pixel_values, depth_map, valid_mask
 
     def __repr__(self) -> str:
@@ -141,9 +143,11 @@ class PairedCenterCrop:
         _, h, w = pixel_values.shape
         top = max(0, (h - self.crop_h) // 2)
         left = max(0, (w - self.crop_w) // 2)
-        pixel_values = pixel_values[:, top:top + self.crop_h, left:left + self.crop_w]
-        depth_map = depth_map[:, top:top + self.crop_h, left:left + self.crop_w]
-        valid_mask = valid_mask[:, top:top + self.crop_h, left:left + self.crop_w]
+        pixel_values = pixel_values[
+            :, top : top + self.crop_h, left : left + self.crop_w
+        ]
+        depth_map = depth_map[:, top : top + self.crop_h, left : left + self.crop_w]
+        valid_mask = valid_mask[:, top : top + self.crop_h, left : left + self.crop_w]
         return pixel_values, depth_map, valid_mask
 
     def __repr__(self) -> str:
@@ -200,11 +204,15 @@ class PairedRandomScale:
             mode="nearest",
         ).squeeze(0)
 
-        valid_mask = F.interpolate(
-            valid_mask.float().unsqueeze(0),
-            size=(new_h, new_w),
-            mode="nearest",
-        ).squeeze(0).bool()
+        valid_mask = (
+            F.interpolate(
+                valid_mask.float().unsqueeze(0),
+                size=(new_h, new_w),
+                mode="nearest",
+            )
+            .squeeze(0)
+            .bool()
+        )
 
         if self.scale_depth:
             depth_map = depth_map * s
@@ -262,11 +270,15 @@ class PairedResize:
             mode="nearest",
         ).squeeze(0)
 
-        valid_mask = F.interpolate(
-            valid_mask.float().unsqueeze(0),
-            size=(new_h, new_w),
-            mode="nearest",
-        ).squeeze(0).bool()
+        valid_mask = (
+            F.interpolate(
+                valid_mask.float().unsqueeze(0),
+                size=(new_h, new_w),
+                mode="nearest",
+            )
+            .squeeze(0)
+            .bool()
+        )
 
         return pixel_values, depth_map, valid_mask
 
@@ -322,7 +334,7 @@ class PairedNormalize:
     def __init__(
         self,
         mean: Sequence[float] = (0.485, 0.456, 0.406),
-        std:  Sequence[float] = (0.229, 0.224, 0.225),
+        std: Sequence[float] = (0.229, 0.224, 0.225),
     ):
         self.mean = list(mean)
         self.std = list(std)
@@ -344,6 +356,7 @@ class PairedNormalize:
 # Preset transform pipelines
 # ---------------------------------------------------------------------------
 
+
 def get_train_transforms(input_size: int = 518) -> Compose:
     """Standard training transform pipeline.
 
@@ -357,14 +370,16 @@ def get_train_transforms(input_size: int = 518) -> Compose:
     Returns:
         :class:`Compose` transform.
     """
-    return Compose([
-        PairedResize(size=input_size),
-        PairedRandomScale(scale_range=(1.0, 2.0), scale_depth=True),
-        PairedRandomCrop(size=input_size),
-        PairedRandomHorizontalFlip(p=0.5),
-        PairedColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.05),
-        PairedNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    return Compose(
+        [
+            PairedResize(size=input_size),
+            PairedRandomScale(scale_range=(1.0, 2.0), scale_depth=True),
+            PairedRandomCrop(size=input_size),
+            PairedRandomHorizontalFlip(p=0.5),
+            PairedColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.05),
+            PairedNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
 
 def get_val_transforms(input_size: int = 518) -> Compose:
@@ -379,8 +394,10 @@ def get_val_transforms(input_size: int = 518) -> Compose:
     Returns:
         :class:`Compose` transform.
     """
-    return Compose([
-        PairedResize(size=input_size),
-        PairedCenterCrop(size=input_size),
-        PairedNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    return Compose(
+        [
+            PairedResize(size=input_size),
+            PairedCenterCrop(size=input_size),
+            PairedNormalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )

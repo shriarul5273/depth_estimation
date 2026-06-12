@@ -64,14 +64,20 @@ class PatchEmbed(nn.Module):
         self.in_chans = in_chans
         self.embed_dim = embed_dim
         self.flatten_embedding = flatten_embedding
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW)
+        self.proj = nn.Conv2d(
+            in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW
+        )
         self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         _, _, H, W = x.shape
         patch_H, patch_W = self.patch_size
-        assert H % patch_H == 0, f"Input image height {H} is not a multiple of patch height {patch_H}"
-        assert W % patch_W == 0, f"Input image width {W} is not a multiple of patch width: {patch_W}"
+        assert H % patch_H == 0, (
+            f"Input image height {H} is not a multiple of patch height {patch_H}"
+        )
+        assert W % patch_W == 0, (
+            f"Input image width {W} is not a multiple of patch width: {patch_W}"
+        )
         x = self.proj(x)
         H, W = x.size(2), x.size(3)
         x = x.flatten(2).transpose(1, 2)
@@ -246,7 +252,7 @@ class Attention(nn.Module):
         assert dim % num_heads == 0, "dim should be divisible by num_heads"
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.scale = head_dim ** -0.5
+        self.scale = head_dim**-0.5
         self.fused_attn = fused_attn
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.q_norm = norm_layer(head_dim) if qk_norm else nn.Identity()
@@ -354,7 +360,9 @@ class Block(nn.Module):
             qk_norm=qk_norm,
             rope=rope,
         )
-        self.ls1 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.ls1 = (
+            LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        )
         self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim, eps=ln_eps)
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -365,12 +373,16 @@ class Block(nn.Module):
             drop=drop,
             bias=ffn_bias,
         )
-        self.ls2 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.ls2 = (
+            LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        )
         self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.sample_drop_ratio = drop_path
 
     def forward(self, x: torch.Tensor, pos=None, attn_mask=None) -> torch.Tensor:
-        def attn_residual_func(x: torch.Tensor, pos=None, attn_mask=None) -> torch.Tensor:
+        def attn_residual_func(
+            x: torch.Tensor, pos=None, attn_mask=None
+        ) -> torch.Tensor:
             return self.ls1(self.attn(self.norm1(x), pos=pos, attn_mask=attn_mask))
 
         def ffn_residual_func(x: torch.Tensor) -> torch.Tensor:
@@ -417,7 +429,11 @@ class PositionGetter:
             positions = torch.cartesian_prod(y_coords, x_coords)
             self.position_cache[height, width] = positions
         cached_positions = self.position_cache[height, width]
-        return cached_positions.view(1, height * width, 2).expand(batch_size, -1, -1).clone()
+        return (
+            cached_positions.view(1, height * width, 2)
+            .expand(batch_size, -1, -1)
+            .clone()
+        )
 
 
 class RotaryPositionEmbedding2D(nn.Module):
@@ -435,7 +451,7 @@ class RotaryPositionEmbedding2D(nn.Module):
         cache_key = (dim, seq_len, device, dtype)
         if cache_key not in self.frequency_cache:
             exponents = torch.arange(0, dim, 2, device=device).float() / dim
-            inv_freq = 1.0 / (self.base_frequency ** exponents)
+            inv_freq = 1.0 / (self.base_frequency**exponents)
             positions = torch.arange(seq_len, device=device, dtype=inv_freq.dtype)
             angles = torch.einsum("i,j->ij", positions, inv_freq)
             angles = angles.to(dtype)
@@ -464,9 +480,9 @@ class RotaryPositionEmbedding2D(nn.Module):
 
     def forward(self, tokens: torch.Tensor, positions: torch.Tensor) -> torch.Tensor:
         assert tokens.size(-1) % 2 == 0, "Feature dimension must be even"
-        assert (
-            positions.ndim == 3 and positions.shape[-1] == 2
-        ), "Positions must have shape (batch_size, n_tokens, 2)"
+        assert positions.ndim == 3 and positions.shape[-1] == 2, (
+            "Positions must have shape (batch_size, n_tokens, 2)"
+        )
         feature_dim = tokens.size(-1) // 2
         max_position = int(positions.max()) + 1
         cos_comp, sin_comp = self._compute_frequency_components(
@@ -587,7 +603,7 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     assert embed_dim % 2 == 0
     omega = np.arange(embed_dim // 2, dtype=float)
     omega /= embed_dim / 2.0
-    omega = 1.0 / 10000 ** omega
+    omega = 1.0 / 10000**omega
     pos = pos.reshape(-1)
     out = np.einsum("m,d->md", pos, omega)
     emb_sin = np.sin(out)
@@ -602,7 +618,13 @@ def named_apply(
         fn(module=module, name=name)
     for child_name, child_module in module.named_children():
         child_name = ".".join((name, child_name)) if name else child_name
-        named_apply(fn=fn, module=child_module, name=child_name, depth_first=depth_first, include_root=True)
+        named_apply(
+            fn=fn,
+            module=child_module,
+            name=child_name,
+            depth_first=depth_first,
+            include_root=True,
+        )
     if depth_first and include_root:
         fn(module=module, name=name)
     return module
@@ -663,13 +685,18 @@ class DinoVisionTransformer(nn.Module):
         self.interpolate_offset = interpolate_offset
 
         self.patch_embed = embed_layer(
-            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim
+            img_size=img_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
+            embed_dim=embed_dim,
         )
         num_patches = self.patch_embed.num_patches
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         if self.alt_start != -1:
             self.camera_token = nn.Parameter(torch.randn(1, 2, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, num_patches + self.num_tokens, embed_dim)
+        )
         assert num_register_tokens >= 0
         self.register_tokens = (
             nn.Parameter(torch.zeros(1, num_register_tokens, embed_dim))
@@ -699,7 +726,11 @@ class DinoVisionTransformer(nn.Module):
             raise NotImplementedError
 
         if self.rope_start != -1:
-            self.rope = RotaryPositionEmbedding2D(frequency=rope_freq) if rope_freq > 0 else None
+            self.rope = (
+                RotaryPositionEmbedding2D(frequency=rope_freq)
+                if rope_freq > 0
+                else None
+            )
             self.position_getter = PositionGetter() if self.rope is not None else None
         else:
             self.rope = None
@@ -754,7 +785,9 @@ class DinoVisionTransformer(nn.Module):
         )
         assert (w0, h0) == patch_pos_embed.shape[-2:]
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
+        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(
+            previous_dtype
+        )
 
     def prepare_cls_token(self, B, S):
         cls_token = self.cls_token.expand(B, S, -1)
@@ -766,7 +799,9 @@ class DinoVisionTransformer(nn.Module):
         x = rearrange(x, "b s c h w -> (b s) c h w")
         x = self.patch_embed(x)
         if masks is not None:
-            x = torch.where(masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x)
+            x = torch.where(
+                masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x
+            )
         cls_token = self.prepare_cls_token(B, S)
         x = torch.cat((cls_token, x), dim=1)
         x = x + self.interpolate_pos_encoding(x, w, h)
@@ -782,23 +817,31 @@ class DinoVisionTransformer(nn.Module):
         pos = None
         pos_nodiff = None
         if self.rope is not None:
-            pos = self.position_getter(B * S, H // self.patch_size, W // self.patch_size, device=device)
+            pos = self.position_getter(
+                B * S, H // self.patch_size, W // self.patch_size, device=device
+            )
             pos = rearrange(pos, "(b s) n c -> b s n c", b=B)
             pos_nodiff = torch.zeros_like(pos).to(pos.dtype)
             if self.patch_start_idx > 0:
                 pos = pos + 1
-                pos_special = torch.zeros(B * S, self.patch_start_idx, 2).to(device).to(pos.dtype)
+                pos_special = (
+                    torch.zeros(B * S, self.patch_start_idx, 2).to(device).to(pos.dtype)
+                )
                 pos_special = rearrange(pos_special, "(b s) n c -> b s n c", b=B)
                 pos = torch.cat([pos_special, pos], dim=2)
                 pos_nodiff = pos_nodiff + 1
                 pos_nodiff = torch.cat([pos_special, pos_nodiff], dim=2)
         return pos, pos_nodiff
 
-    def _get_intermediate_layers_not_chunked(self, x, n=1, export_feat_layers=[], **kwargs):
+    def _get_intermediate_layers_not_chunked(
+        self, x, n=1, export_feat_layers=[], **kwargs
+    ):
         B, S, _, H, W = x.shape
         x = self.prepare_tokens_with_masks(x)
         output, total_block_len, aux_output = [], len(self.blocks), []
-        blocks_to_take = range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        blocks_to_take = (
+            range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        )
         pos, pos_nodiff = self._prepare_rope(B, S, H, W, x.device)
 
         for i, blk in enumerate(self.blocks):
@@ -840,7 +883,11 @@ class DinoVisionTransformer(nn.Module):
 
             if i in blocks_to_take:
                 out_x = torch.cat([local_x, x], dim=-1) if self.cat_token else x
-                if x.shape[1] >= THRESH_FOR_REF_SELECTION and self.alt_start != -1 and "b_idx" in locals():
+                if (
+                    x.shape[1] >= THRESH_FOR_REF_SELECTION
+                    and self.alt_start != -1
+                    and "b_idx" in locals()
+                ):
                     out_x = restore_original_order(out_x, b_idx)
                 output.append((out_x[:, :, 0], out_x))
             if i in export_feat_layers:
@@ -882,7 +929,10 @@ class DinoVisionTransformer(nn.Module):
         elif outputs[0][1].shape[-1] == (self.embed_dim * 2):
             outputs = [
                 torch.cat(
-                    [out[1][..., : self.embed_dim], self.norm(out[1][..., self.embed_dim :])],
+                    [
+                        out[1][..., : self.embed_dim],
+                        self.norm(out[1][..., self.embed_dim :]),
+                    ],
                     dim=-1,
                 )
                 for out in outputs
@@ -891,7 +941,9 @@ class DinoVisionTransformer(nn.Module):
             raise ValueError(f"Invalid output shape: {outputs[0][1].shape}")
         aux_outputs = [self.norm(out) for out in aux_outputs]
         outputs = [out[..., 1 + self.num_register_tokens :, :] for out in outputs]
-        aux_outputs = [out[..., 1 + self.num_register_tokens :, :] for out in aux_outputs]
+        aux_outputs = [
+            out[..., 1 + self.num_register_tokens :, :] for out in aux_outputs
+        ]
         return tuple(zip(outputs, camera_tokens)), aux_outputs
 
 
@@ -1003,11 +1055,13 @@ class Permute(nn.Module):
         return x.permute(*self.dims)
 
 
-def make_sincos_pos_embed(embed_dim: int, pos: torch.Tensor, omega_0: float = 100) -> torch.Tensor:
+def make_sincos_pos_embed(
+    embed_dim: int, pos: torch.Tensor, omega_0: float = 100
+) -> torch.Tensor:
     assert embed_dim % 2 == 0
     omega = torch.arange(embed_dim // 2, dtype=torch.float32, device=pos.device)
     omega /= embed_dim / 2.0
-    omega = 1.0 / omega_0 ** omega
+    omega = 1.0 / omega_0**omega
     pos = pos.reshape(-1)
     out = torch.einsum("m,d->md", pos, omega)
     emb_sin = torch.sin(out)
@@ -1036,7 +1090,7 @@ def create_uv_grid(
 ) -> torch.Tensor:
     if aspect_ratio is None:
         aspect_ratio = float(width) / float(height)
-    diag_factor = (aspect_ratio ** 2 + 1.0) ** 0.5
+    diag_factor = (aspect_ratio**2 + 1.0) ** 0.5
     span_x = aspect_ratio / diag_factor
     span_y = 1.0 / diag_factor
     left_x = -span_x * (width - 1) / width
@@ -1065,11 +1119,15 @@ def custom_interpolate(
     if total > INT_MAX:
         chunks = torch.chunk(x, chunks=(total // INT_MAX) + 1, dim=0)
         outs = [
-            nn.functional.interpolate(c, size=size, mode=mode, align_corners=align_corners)
+            nn.functional.interpolate(
+                c, size=size, mode=mode, align_corners=align_corners
+            )
             for c in chunks
         ]
         return torch.cat(outs, dim=0).contiguous()
-    return nn.functional.interpolate(x, size=size, mode=mode, align_corners=align_corners)
+    return nn.functional.interpolate(
+        x, size=size, mode=mode, align_corners=align_corners
+    )
 
 
 # ============================================================================ #
@@ -1080,7 +1138,9 @@ def custom_interpolate(
 class ResidualConvUnit(nn.Module):
     """Lightweight residual convolution block for fusion."""
 
-    def __init__(self, features: int, activation: nn.Module, bn: bool, groups: int = 1) -> None:
+    def __init__(
+        self, features: int, activation: nn.Module, bn: bool, groups: int = 1
+    ) -> None:
         super().__init__()
         self.bn = bn
         self.groups = groups
@@ -1123,11 +1183,15 @@ class FeatureFusionBlock(nn.Module):
         self.size = size
         self.has_residual = has_residual
         self.resConfUnit1 = (
-            ResidualConvUnit(features, activation, bn, groups=groups) if has_residual else None
+            ResidualConvUnit(features, activation, bn, groups=groups)
+            if has_residual
+            else None
         )
         self.resConfUnit2 = ResidualConvUnit(features, activation, bn, groups=groups)
         out_features = (features // 2) if expand else features
-        self.out_conv = nn.Conv2d(features, out_features, 1, 1, 0, bias=True, groups=groups)
+        self.out_conv = nn.Conv2d(
+            features, out_features, 1, 1, 0, bias=True, groups=groups
+        )
         self.skip_add = nn.quantized.FloatFunctional()
 
     def forward(self, *xs: torch.Tensor, size: Tuple[int, int] = None) -> torch.Tensor:
@@ -1141,7 +1205,9 @@ class FeatureFusionBlock(nn.Module):
             up_kwargs = {"size": self.size}
         else:
             up_kwargs = {"size": size}
-        y = custom_interpolate(y, **up_kwargs, mode="bilinear", align_corners=self.align_corners)
+        y = custom_interpolate(
+            y, **up_kwargs, mode="bilinear", align_corners=self.align_corners
+        )
         y = self.out_conv(y)
         return y
 
@@ -1228,24 +1294,43 @@ class DPT(nn.Module):
         elif norm_type == "idt":
             self.norm = nn.Identity()
         else:
-            raise Exception(f"Unknown norm_type {norm_type}, should be 'layer' or 'idt'.")
+            raise Exception(
+                f"Unknown norm_type {norm_type}, should be 'layer' or 'idt'."
+            )
 
         self.projects = nn.ModuleList(
-            [nn.Conv2d(dim_in, oc, kernel_size=1, stride=1, padding=0) for oc in out_channels]
+            [
+                nn.Conv2d(dim_in, oc, kernel_size=1, stride=1, padding=0)
+                for oc in out_channels
+            ]
         )
         self.resize_layers = nn.ModuleList(
             [
-                nn.ConvTranspose2d(out_channels[0], out_channels[0], kernel_size=4, stride=4, padding=0),
-                nn.ConvTranspose2d(out_channels[1], out_channels[1], kernel_size=2, stride=2, padding=0),
+                nn.ConvTranspose2d(
+                    out_channels[0], out_channels[0], kernel_size=4, stride=4, padding=0
+                ),
+                nn.ConvTranspose2d(
+                    out_channels[1], out_channels[1], kernel_size=2, stride=2, padding=0
+                ),
                 nn.Identity(),
-                nn.Conv2d(out_channels[3], out_channels[3], kernel_size=3, stride=2, padding=1),
+                nn.Conv2d(
+                    out_channels[3], out_channels[3], kernel_size=3, stride=2, padding=1
+                ),
             ]
         )
         self.scratch = _make_scratch(list(out_channels), features, expand=False)
-        self.scratch.refinenet1 = _make_fusion_block(features, inplace=fusion_block_inplace)
-        self.scratch.refinenet2 = _make_fusion_block(features, inplace=fusion_block_inplace)
-        self.scratch.refinenet3 = _make_fusion_block(features, inplace=fusion_block_inplace)
-        self.scratch.refinenet4 = _make_fusion_block(features, has_residual=False, inplace=fusion_block_inplace)
+        self.scratch.refinenet1 = _make_fusion_block(
+            features, inplace=fusion_block_inplace
+        )
+        self.scratch.refinenet2 = _make_fusion_block(
+            features, inplace=fusion_block_inplace
+        )
+        self.scratch.refinenet3 = _make_fusion_block(
+            features, inplace=fusion_block_inplace
+        )
+        self.scratch.refinenet4 = _make_fusion_block(
+            features, has_residual=False, inplace=fusion_block_inplace
+        )
 
         head_features_1 = features
         head_features_2 = 32
@@ -1253,19 +1338,35 @@ class DPT(nn.Module):
             head_features_1, head_features_1 // 2, kernel_size=3, stride=1, padding=1
         )
         ln_seq = (
-            [Permute((0, 2, 3, 1)), nn.LayerNorm(head_features_2), Permute((0, 3, 1, 2))]
+            [
+                Permute((0, 2, 3, 1)),
+                nn.LayerNorm(head_features_2),
+                Permute((0, 3, 1, 2)),
+            ]
             if use_ln_for_heads
             else []
         )
         self.scratch.output_conv2 = nn.Sequential(
-            nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                head_features_1 // 2,
+                head_features_2,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
             *ln_seq,
             nn.ReLU(inplace=True),
             nn.Conv2d(head_features_2, output_dim, kernel_size=1, stride=1, padding=0),
         )
         if self.use_sky_head:
             self.scratch.sky_output_conv2 = nn.Sequential(
-                nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(
+                    head_features_1 // 2,
+                    head_features_2,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                ),
                 *ln_seq,
                 nn.ReLU(inplace=True),
                 nn.Conv2d(head_features_2, 1, kernel_size=1, stride=1, padding=0),
@@ -1281,11 +1382,14 @@ class DPT(nn.Module):
         **kwargs,
     ) -> Dict:
         from addict import Dict as AddictDict
+
         B, S, N, C = feats[0][0].shape
         feats = [feat[0].reshape(B * S, N, C) for feat in feats]
         extra_kwargs = {}
         if "images" in kwargs:
-            extra_kwargs.update({"images": rearrange(kwargs["images"], "B S ... -> (B S) ...")})
+            extra_kwargs.update(
+                {"images": rearrange(kwargs["images"], "B S ... -> (B S) ...")}
+            )
         if chunk_size is None or chunk_size >= S:
             out_dict = self._forward_impl(feats, H, W, patch_start_idx, **extra_kwargs)
             out_dict = {k: v.view(B, S, *v.shape[1:]) for k, v in out_dict.items()}
@@ -1297,9 +1401,14 @@ class DPT(nn.Module):
             if "images" in extra_kwargs:
                 kw.update({"images": extra_kwargs["images"][s0:s1]})
             out_dicts.append(
-                self._forward_impl([f[s0:s1] for f in feats], H, W, patch_start_idx, **kw)
+                self._forward_impl(
+                    [f[s0:s1] for f in feats], H, W, patch_start_idx, **kw
+                )
             )
-        out_dict = {k: torch.cat([od[k] for od in out_dicts], dim=0) for k in out_dicts[0].keys()}
+        out_dict = {
+            k: torch.cat([od[k] for od in out_dicts], dim=0)
+            for k in out_dicts[0].keys()
+        }
         out_dict = {k: v.view(B, S, *v.shape[1:]) for k, v in out_dict.items()}
         return AddictDict(out_dict)
 
@@ -1326,7 +1435,9 @@ class DPT(nn.Module):
         h_out = int(ph * self.patch_size / self.down_ratio)
         w_out = int(pw * self.patch_size / self.down_ratio)
         fused = self.scratch.output_conv1(fused)
-        fused = custom_interpolate(fused, (h_out, w_out), mode="bilinear", align_corners=True)
+        fused = custom_interpolate(
+            fused, (h_out, w_out), mode="bilinear", align_corners=True
+        )
         if self.pos_embed:
             fused = self._add_pos_embed(fused, W, H)
         feat = fused
@@ -1339,7 +1450,9 @@ class DPT(nn.Module):
             outs[self.head_main] = pred.squeeze(1)
             outs[f"{self.head_main}_conf"] = conf.squeeze(1)
         else:
-            outs[self.head_main] = self._apply_activation_single(main_logits, self.activation).squeeze(1)
+            outs[self.head_main] = self._apply_activation_single(
+                main_logits, self.activation
+            ).squeeze(1)
         if self.use_sky_head:
             sky_logits = self.scratch.sky_output_conv2(feat)
             outs[self.sky_name] = self._apply_sky_activation(sky_logits).squeeze(1)
@@ -1357,7 +1470,9 @@ class DPT(nn.Module):
         out = self.scratch.refinenet1(out, l1_rn)
         return out
 
-    def _apply_activation_single(self, x: torch.Tensor, activation: str = "linear") -> torch.Tensor:
+    def _apply_activation_single(
+        self, x: torch.Tensor, activation: str = "linear"
+    ) -> torch.Tensor:
         act = activation.lower() if isinstance(activation, str) else activation
         if act == "exp":
             return torch.exp(x)
@@ -1376,14 +1491,20 @@ class DPT(nn.Module):
         return x
 
     def _apply_sky_activation(self, x: torch.Tensor) -> torch.Tensor:
-        act = self.sky_activation.lower() if isinstance(self.sky_activation, str) else self.sky_activation
+        act = (
+            self.sky_activation.lower()
+            if isinstance(self.sky_activation, str)
+            else self.sky_activation
+        )
         if act == "sigmoid":
             return torch.sigmoid(x)
         if act == "relu":
             return torch.relu(x)
         return x
 
-    def _add_pos_embed(self, x: torch.Tensor, W: int, H: int, ratio: float = 0.1) -> torch.Tensor:
+    def _add_pos_embed(
+        self, x: torch.Tensor, W: int, H: int, ratio: float = 0.1
+    ) -> torch.Tensor:
         pw, ph = x.shape[-1], x.shape[-2]
         pe = create_uv_grid(pw, ph, aspect_ratio=W / H, dtype=x.dtype, device=x.device)
         pe = position_grid_to_embed(pe, x.shape[1]) * ratio
@@ -1428,14 +1549,23 @@ class DualDPT(nn.Module):
 
         self.norm = nn.LayerNorm(dim_in)
         self.projects = nn.ModuleList(
-            [nn.Conv2d(dim_in, oc, kernel_size=1, stride=1, padding=0) for oc in out_channels]
+            [
+                nn.Conv2d(dim_in, oc, kernel_size=1, stride=1, padding=0)
+                for oc in out_channels
+            ]
         )
         self.resize_layers = nn.ModuleList(
             [
-                nn.ConvTranspose2d(out_channels[0], out_channels[0], kernel_size=4, stride=4, padding=0),
-                nn.ConvTranspose2d(out_channels[1], out_channels[1], kernel_size=2, stride=2, padding=0),
+                nn.ConvTranspose2d(
+                    out_channels[0], out_channels[0], kernel_size=4, stride=4, padding=0
+                ),
+                nn.ConvTranspose2d(
+                    out_channels[1], out_channels[1], kernel_size=2, stride=2, padding=0
+                ),
                 nn.Identity(),
-                nn.Conv2d(out_channels[3], out_channels[3], kernel_size=3, stride=2, padding=1),
+                nn.Conv2d(
+                    out_channels[3], out_channels[3], kernel_size=3, stride=2, padding=1
+                ),
             ]
         )
         self.scratch = _make_scratch(list(out_channels), features, expand=False)
@@ -1452,7 +1582,13 @@ class DualDPT(nn.Module):
             head_features_1, head_features_1 // 2, kernel_size=3, stride=1, padding=1
         )
         self.scratch.output_conv2 = nn.Sequential(
-            nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                head_features_1 // 2,
+                head_features_2,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
             nn.ReLU(inplace=True),
             nn.Conv2d(head_features_2, output_dim, kernel_size=1, stride=1, padding=0),
         )
@@ -1468,14 +1604,24 @@ class DualDPT(nn.Module):
         )
         use_ln = True
         ln_seq = (
-            [Permute((0, 2, 3, 1)), nn.LayerNorm(head_features_2), Permute((0, 3, 1, 2))]
+            [
+                Permute((0, 2, 3, 1)),
+                nn.LayerNorm(head_features_2),
+                Permute((0, 3, 1, 2)),
+            ]
             if use_ln
             else []
         )
         self.scratch.output_conv2_aux = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+                    nn.Conv2d(
+                        head_features_1 // 2,
+                        head_features_2,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
                     *ln_seq,
                     nn.ReLU(inplace=True),
                     nn.Conv2d(head_features_2, 7, kernel_size=1, stride=1, padding=0),
@@ -1493,6 +1639,7 @@ class DualDPT(nn.Module):
         chunk_size: int = 8,
     ) -> Dict[str, torch.Tensor]:
         from addict import Dict as AddictDict
+
         B, S, N, C = feats[0][0].shape
         feats = [feat[0].reshape(B * S, N, C) for feat in feats]
         if chunk_size is None or chunk_size >= S:
@@ -1503,10 +1650,13 @@ class DualDPT(nn.Module):
         for s0 in range(0, B * S, chunk_size):
             s1 = min(s0 + chunk_size, B * S)
             out_dicts.append(
-                self._forward_impl([feat[s0:s1] for feat in feats], H, W, patch_start_idx)
+                self._forward_impl(
+                    [feat[s0:s1] for feat in feats], H, W, patch_start_idx
+                )
             )
         out_dict = {
-            k: torch.cat([od[k] for od in out_dicts], dim=0) for k in out_dicts[0].keys()
+            k: torch.cat([od[k] for od in out_dicts], dim=0)
+            for k in out_dicts[0].keys()
         }
         out_dict = {k: v.view(B, S, *v.shape[1:]) for k, v in out_dict.items()}
         return AddictDict(out_dict)
@@ -1533,7 +1683,9 @@ class DualDPT(nn.Module):
         fused_main, fused_aux_pyr = self._fuse(resized_feats)
         h_out = int(ph * self.patch_size / self.down_ratio)
         w_out = int(pw * self.patch_size / self.down_ratio)
-        fused_main = custom_interpolate(fused_main, (h_out, w_out), mode="bilinear", align_corners=True)
+        fused_main = custom_interpolate(
+            fused_main, (h_out, w_out), mode="bilinear", align_corners=True
+        )
         if self.pos_embed:
             fused_main = self._add_pos_embed(fused_main, W, H)
         main_logits = self.scratch.output_conv2(fused_main)
@@ -1546,7 +1698,9 @@ class DualDPT(nn.Module):
         last_aux_logits = self.scratch.output_conv2_aux[-1](last_aux)
         fmap_last = last_aux_logits.permute(0, 2, 3, 1)
         aux_pred = self._apply_activation_single(fmap_last[..., :-1], "linear")
-        aux_conf = self._apply_activation_single(fmap_last[..., -1], self.conf_activation)
+        aux_conf = self._apply_activation_single(
+            fmap_last[..., -1], self.conf_activation
+        )
         return {
             self.head_main: main_pred.squeeze(-1),
             f"{self.head_main}_conf": main_conf,
@@ -1554,7 +1708,9 @@ class DualDPT(nn.Module):
             f"{self.head_aux}_conf": aux_conf,
         }
 
-    def _fuse(self, feats: List[torch.Tensor]) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+    def _fuse(
+        self, feats: List[torch.Tensor]
+    ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
         l1, l2, l3, l4 = feats
         l1_rn = self.scratch.layer1_rn(l1)
         l2_rn = self.scratch.layer2_rn(l2)
@@ -1577,10 +1733,14 @@ class DualDPT(nn.Module):
         aux_out = self.scratch.refinenet1_aux(aux_out, l1_rn)
         aux_list.append(aux_out)
         out = self.scratch.output_conv1(out)
-        aux_list = [self.scratch.output_conv1_aux[i](aux) for i, aux in enumerate(aux_list)]
+        aux_list = [
+            self.scratch.output_conv1_aux[i](aux) for i, aux in enumerate(aux_list)
+        ]
         return out, aux_list
 
-    def _add_pos_embed(self, x: torch.Tensor, W: int, H: int, ratio: float = 0.1) -> torch.Tensor:
+    def _add_pos_embed(
+        self, x: torch.Tensor, W: int, H: int, ratio: float = 0.1
+    ) -> torch.Tensor:
         pw, ph = x.shape[-1], x.shape[-2]
         pe = create_uv_grid(pw, ph, aspect_ratio=W / H, dtype=x.dtype, device=x.device)
         pe = position_grid_to_embed(pe, x.shape[1]) * ratio
@@ -1606,7 +1766,9 @@ class DualDPT(nn.Module):
             return nn.Sequential(nn.Conv2d(in_ch, in_ch // 2, 3, 1, 1))
         raise ValueError(f"aux_out1_conv_num {self.aux_out1_conv_num} not supported")
 
-    def _apply_activation_single(self, x: torch.Tensor, activation: str = "linear") -> torch.Tensor:
+    def _apply_activation_single(
+        self, x: torch.Tensor, activation: str = "linear"
+    ) -> torch.Tensor:
         act = activation.lower() if isinstance(activation, str) else activation
         if act == "exp":
             return torch.exp(x)
@@ -1636,8 +1798,10 @@ class CameraDec(nn.Module):
     def __init__(self, dim_in: int = 1536) -> None:
         super().__init__()
         self.backbone = nn.Sequential(
-            nn.Linear(dim_in, dim_in), nn.ReLU(),
-            nn.Linear(dim_in, dim_in), nn.ReLU(),
+            nn.Linear(dim_in, dim_in),
+            nn.ReLU(),
+            nn.Linear(dim_in, dim_in),
+            nn.ReLU(),
         )
         self.fc_t = nn.Linear(dim_in, 3)
         self.fc_qvec = nn.Linear(dim_in, 4)
@@ -1793,7 +1957,7 @@ class DepthAnythingV3Model(BaseDepthModel):
 
         state_dict = load_file(filepath, device=device)
         remapped = {
-            k[len("model."):]: v
+            k[len("model.") :]: v
             for k, v in state_dict.items()
             if k.startswith("model.")
         }
@@ -1846,7 +2010,9 @@ class DepthAnythingV3NestedModel(BaseDepthModel):
             if n_non_sky > 10 and n_sky > 10:
                 conf_ns = depth_conf[non_sky]
                 if conf_ns.numel() > 100_000:
-                    idx = torch.randperm(conf_ns.numel(), device=conf_ns.device)[:100_000]
+                    idx = torch.randperm(conf_ns.numel(), device=conf_ns.device)[
+                        :100_000
+                    ]
                     conf_ns = conf_ns[idx]
                 med_conf = torch.quantile(conf_ns, 0.5)
 
@@ -1865,7 +2031,9 @@ class DepthAnythingV3NestedModel(BaseDepthModel):
 
                 non_sky_d = depth[non_sky]
                 if non_sky_d.numel() > 100_000:
-                    idx = torch.randint(0, non_sky_d.numel(), (100_000,), device=non_sky_d.device)
+                    idx = torch.randint(
+                        0, non_sky_d.numel(), (100_000,), device=non_sky_d.device
+                    )
                     non_sky_d = non_sky_d[idx]
                 sky_fill = min(torch.quantile(non_sky_d, 0.99).item(), 200.0)
                 depth = depth.clone()
@@ -1896,7 +2064,9 @@ class DepthAnythingV3NestedModel(BaseDepthModel):
             )
             logger.info(f"Downloaded v3 checkpoint ({backbone_name}): {path}")
             sd = load_file(path, device="cpu")
-            return {k[len("model."):]: v for k, v in sd.items() if k.startswith("model.")}
+            return {
+                k[len("model.") :]: v for k, v in sd.items() if k.startswith("model.")
+            }
 
         giant_sd = _load_submodel("giant")
         metric_sd = _load_submodel("metric_large")

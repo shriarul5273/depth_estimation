@@ -45,7 +45,9 @@ def download_file(url: str, dest: Path, desc: Optional[str] = None) -> Path:
             def __init__(self) -> None:
                 self.pbar: Optional[tqdm] = None
 
-            def __call__(self, block_num: int, block_size: int, total_size: int) -> None:
+            def __call__(
+                self, block_num: int, block_size: int, total_size: int
+            ) -> None:
                 if self.pbar is None:
                     self.pbar = tqdm(
                         total=total_size, unit="B", unit_scale=True, desc=label

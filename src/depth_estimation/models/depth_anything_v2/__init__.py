@@ -13,6 +13,7 @@ from ...registry import MODEL_REGISTRY
 
 def _load_model_cls():
     from .modeling_depth_anything_v2 import DepthAnythingV2Model
+
     return DepthAnythingV2Model
 
 
@@ -28,6 +29,7 @@ MODEL_REGISTRY.register(
 def __getattr__(name):
     if name == "DepthAnythingV2Model":
         from .modeling_depth_anything_v2 import DepthAnythingV2Model
+
         return DepthAnythingV2Model
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

@@ -5,9 +5,7 @@ All tests use synthetic tensors — no model weights are downloaded.
 
 from __future__ import annotations
 
-import math
 
-import pytest
 import torch
 
 from depth_estimation.losses import (
@@ -22,11 +20,12 @@ from depth_estimation.losses import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _pred_gt(b=2, h=32, w=32, seed=0):
     g = torch.Generator()
     g.manual_seed(seed)
     pred = torch.rand(b, h, w, generator=g).clamp(min=0.1) + 0.5
-    gt   = torch.rand(b, h, w, generator=g).clamp(min=0.1) + 0.5
+    gt = torch.rand(b, h, w, generator=g).clamp(min=0.1) + 0.5
     mask = torch.ones(b, h, w, dtype=torch.bool)
     return pred, gt, mask
 
@@ -34,6 +33,7 @@ def _pred_gt(b=2, h=32, w=32, seed=0):
 # ---------------------------------------------------------------------------
 # ScaleInvariantLoss
 # ---------------------------------------------------------------------------
+
 
 class TestScaleInvariantLoss:
     def test_perfect_prediction_is_zero(self):
@@ -63,7 +63,7 @@ class TestScaleInvariantLoss:
         """With lam=1, SI = Var(d). If pred = c*gt, d is constant → Var = 0."""
         loss_fn = ScaleInvariantLoss(lam=1.0)
         _, gt, mask = _pred_gt(b=1)
-        pred = gt * 3.7   # wrong scale, but constant shift in log space
+        pred = gt * 3.7  # wrong scale, but constant shift in log space
         assert loss_fn(pred, gt, mask).item() < 1e-5
 
     def test_returns_scalar(self):
@@ -76,7 +76,7 @@ class TestScaleInvariantLoss:
         loss_fn = ScaleInvariantLoss(lam=0.0)
         pred, gt, mask = _pred_gt(b=1)
         d = (torch.log(pred) - torch.log(gt))[mask]
-        expected = (d ** 2).mean().item()
+        expected = (d**2).mean().item()
         got = loss_fn(pred, gt, mask).item()
         assert abs(got - expected) < 1e-5
 
@@ -99,6 +99,7 @@ class TestScaleInvariantLoss:
 # ---------------------------------------------------------------------------
 # GradientLoss
 # ---------------------------------------------------------------------------
+
 
 class TestGradientLoss:
     def test_perfect_prediction_is_zero(self):
@@ -139,6 +140,7 @@ class TestGradientLoss:
 # BerHuLoss
 # ---------------------------------------------------------------------------
 
+
 class TestBerHuLoss:
     def test_perfect_prediction_is_zero(self):
         loss_fn = BerHuLoss()
@@ -170,6 +172,7 @@ class TestBerHuLoss:
 # ---------------------------------------------------------------------------
 # CombinedDepthLoss
 # ---------------------------------------------------------------------------
+
 
 class TestCombinedDepthLoss:
     def test_output_keys(self):
@@ -217,9 +220,9 @@ class TestCombinedDepthLoss:
     def test_backward_works(self):
         loss_fn = CombinedDepthLoss()
         # Use values already in valid range so no clamp needed (clamp creates non-leaf)
-        pred = torch.rand(2, 16, 16) + 0.5   # values in (0.5, 1.5) — safe for log
+        pred = torch.rand(2, 16, 16) + 0.5  # values in (0.5, 1.5) — safe for log
         pred.requires_grad_(True)
-        gt   = (torch.rand(2, 16, 16) + 0.5).detach()
+        gt = (torch.rand(2, 16, 16) + 0.5).detach()
         mask = torch.ones(2, 16, 16, dtype=torch.bool)
         result = loss_fn(pred, gt, mask)
         result["loss"].backward()

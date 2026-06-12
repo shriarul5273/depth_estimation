@@ -157,12 +157,15 @@ class DepthPipeline:
         from .video import VideoStream
         from .processing_utils import DepthProcessor
 
-        stream = VideoStream(source, batch_size=batch_size,
-                             temporal_smoothing=temporal_smoothing)
+        stream = VideoStream(
+            source, batch_size=batch_size, temporal_smoothing=temporal_smoothing
+        )
         try:
             for frame_rgb, frame_meta in stream:
                 # Infer without colorizing — apply EMA first, then colorize
-                result = self(frame_rgb, batch_size=1, colorize=False, colormap=colormap)
+                result = self(
+                    frame_rgb, batch_size=1, colorize=False, colormap=colormap
+                )
                 smoothed = stream._temporal_filter(result.depth, temporal_smoothing)
                 colored = DepthProcessor._colorize(smoothed, colormap)
 
@@ -197,10 +200,15 @@ class DepthPipeline:
             batch_size: Frames per forward pass.
         """
         from .video import process_video as _process_video
+
         _process_video(
-            self, input_path, output_path,
-            colormap=colormap, side_by_side=side_by_side,
-            fps=fps, temporal_smoothing=temporal_smoothing,
+            self,
+            input_path,
+            output_path,
+            colormap=colormap,
+            side_by_side=side_by_side,
+            fps=fps,
+            temporal_smoothing=temporal_smoothing,
             batch_size=batch_size,
         )
 
@@ -230,10 +238,14 @@ def pipeline(
         Configured DepthPipeline.
     """
     if task != "depth-estimation":
-        raise ValueError(f"Unsupported task '{task}'. Only 'depth-estimation' is supported.")
+        raise ValueError(
+            f"Unsupported task '{task}'. Only 'depth-estimation' is supported."
+        )
 
     if model is None:
-        raise ValueError("You must specify a model identifier (e.g. model='depth-anything-v2-vitb').")
+        raise ValueError(
+            "You must specify a model identifier (e.g. model='depth-anything-v2-vitb')."
+        )
 
     # Import here to avoid circular imports
     from .models.auto import AutoDepthModel, AutoProcessor

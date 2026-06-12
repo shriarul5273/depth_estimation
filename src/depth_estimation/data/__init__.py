@@ -65,9 +65,9 @@ __all__ = [
 
 _REGISTRY = {
     "nyu_depth_v2": NYUDepthV2Dataset,
-    "kitti_eigen":  KITTIEigenDataset,
-    "diode":        DIODEDataset,
-    "folder":       FolderDataset,
+    "kitti_eigen": KITTIEigenDataset,
+    "diode": DIODEDataset,
+    "folder": FolderDataset,
 }
 
 
@@ -107,10 +107,7 @@ def load_dataset(
         print(sample["depth_map"].shape)  # torch.Size([1, 480, 640])
     """
     if name not in _REGISTRY:
-        raise ValueError(
-            f"Unknown dataset {name!r}. "
-            f"Available: {sorted(_REGISTRY)}"
-        )
+        raise ValueError(f"Unknown dataset {name!r}. Available: {sorted(_REGISTRY)}")
 
     cls = _REGISTRY[name]
 
