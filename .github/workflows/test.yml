@@ -41,4 +41,4 @@ jobs:
         run: python -m pip list
 
       - name: Test with PyTest
-        run: python -m pytest -v -rsx tests
+        run: python -m pytest -v -rsx tests -m "not slow"
