@@ -46,9 +46,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]" --no-deps
-          python -m pip install Pillow numpy matplotlib opencv-python \
-            huggingface-hub transformers diffusers accelerate timm \
-            einops addict h5py tqdm
+          # numpy<2: torch==2.0.1's compiled extension predates NumPy 2.0's
+          # ABI changes, so tensor.numpy() breaks under an unpinned (numpy 2.x)
+          # install. numpy 1.x works fine across every torch version we test.
+          python -m pip install pytest pytest-cov Pillow "numpy<2" matplotlib \
+            opencv-python huggingface-hub transformers diffusers accelerate \
+            timm einops addict h5py tqdm
 
       - name: Install torch (CPU wheel)
         run: |
