@@ -275,7 +275,7 @@ Pure PyTorch (`torch.nn.utils.prune`) — no special hardware or SDK. See [docs/
 </details>
 
 <details>
-<summary><b>Quantization</b> — float16/bfloat16/int8, plus ONNX int8</summary>
+<summary><b>Quantization</b> — float16/bfloat16/int8, plus ONNX int8/uint8</summary>
 
 ```python
 from depth_estimation import AutoDepthModel, quantize_onnx
@@ -284,10 +284,10 @@ model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
 model.quantize(dtype="float16")   # in-place GPU precision cast
 
 model.export_onnx("model.onnx")
-quantize_onnx("model.onnx", "model_int8.onnx", weight_type="int8", verify=True)
+quantize_onnx("model.onnx", "model_uint8.onnx", verify=True)  # default weight_type="uint8"
 ```
 
-See [docs/quantization.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/quantization.md) — including which formats are actually verified working (`int16`/`uint16` are **not**, despite being accepted by the underlying APIs).
+See [docs/quantization.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/quantization.md) — including which formats are actually verified working (`int16`/`uint16` are **not**, despite being accepted by the underlying APIs, and `int8` needs `onnxruntime>=1.26.0` for models with `Conv2d` layers).
 
 </details>
 

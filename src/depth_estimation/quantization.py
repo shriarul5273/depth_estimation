@@ -30,8 +30,17 @@ Known limitations (verified, not guessed):
       provider — confirmed by testing (``depth-anything-v2``):
       ``INVALID_GRAPH: Type 'tensor(int16)' ...``. Pass ``verify=True``
       to catch this rather than silently shipping a broken quantized
-      model — it's exactly what caught this in the first place. Only
-      ``int8``/``uint8`` are verified working end-to-end.
+      model — it's exactly what caught this in the first place.
+    - ``quantize_onnx()``'s ``weight_type="int8"`` produces a
+      ``ConvInteger`` op for any ``Conv2d`` layer (every model in this
+      package has one, in its patch embedding). Older ONNX Runtime CPU
+      builds don't implement it at all — confirmed:
+      ``onnxruntime==1.23.2`` (the newest available for Python 3.10 at
+      time of writing) raises ``NOT_IMPLEMENTED: ... ConvInteger(10)``;
+      verified working on ``onnxruntime==1.26.0+``. ``weight_type="uint8"``
+      (the default here) is unaffected — it produces different, more
+      broadly-supported ops, and is ONNX Runtime's own recommended
+      default for CPU execution regardless.
 """
 
 import logging
@@ -105,7 +114,7 @@ def quantize_model(model: nn.Module, dtype: str = "float16") -> nn.Module:
 def quantize_onnx(
     onnx_path: Union[str, Path],
     output_path: Union[str, Path],
-    weight_type: str = "int8",
+    weight_type: str = "uint8",
     verify: bool = False,
     atol: float = 5e-2,
     rtol: float = 5e-2,
@@ -117,12 +126,18 @@ def quantize_onnx(
         onnx_path: Path to an existing ``.onnx`` file, e.g. from
             :func:`depth_estimation.export.export_onnx`.
         output_path: Destination for the quantized ``.onnx`` file.
-        weight_type: ``"int8"`` (default) or ``"uint8"`` — verified
-            working end-to-end. ``"int16"``/``"uint16"`` are accepted but
-            commonly fail to *load* afterward in ONNX Runtime's CPU
-            execution provider — see this module's docstring. Use
-            ``verify=True`` to catch that rather than silently producing
-            a broken file.
+        weight_type: ``"uint8"`` (default — verified working end-to-end,
+            and ONNX Runtime's own recommended default for CPU execution)
+            or ``"int8"`` — for a model with ``Conv2d`` layers (every
+            model in this package has one, in its patch embedding),
+            ``"int8"`` produces a ``ConvInteger`` op that requires
+            ``onnxruntime>=1.26.0``; older CPU builds (confirmed:
+            ``1.23.2``, the newest available for Python 3.10 at time of
+            writing) raise ``NOT_IMPLEMENTED``. ``"int16"``/``"uint16"``
+            are accepted but commonly fail to *load* afterward in ONNX
+            Runtime's CPU execution provider regardless of version — see
+            this module's docstring. Use ``verify=True`` to catch any of
+            this rather than silently producing a broken file.
         verify: If True, load the quantized model in an
             ``onnxruntime.InferenceSession`` and run one forward pass
             with random input, raising if it fails to load/run, or if

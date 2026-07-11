@@ -17,7 +17,7 @@ qmodel = quantize_model(model, dtype="int8")  # returns a NEW model, see below
 
 # Post-export ONNX Runtime quantization — broader op coverage (covers Conv2d too)
 model.export_onnx("model.onnx")
-quantize_onnx("model.onnx", "model_int8.onnx", weight_type="int8", verify=True)
+quantize_onnx("model.onnx", "model_uint8.onnx", verify=True)  # default weight_type="uint8"
 ```
 
 ## Which path should I use?
@@ -26,7 +26,7 @@ quantize_onnx("model.onnx", "model_int8.onnx", weight_type="int8", verify=True)
 |---|---|---|
 | Operates on | A PyTorch model, in-process | An already-exported `.onnx` file |
 | `float16`/`bfloat16` | ✅ Simple dtype cast, every layer | Not applicable — export first at your target precision instead |
-| `int8`/`uint8` | ✅ `nn.Linear` only | ✅ Broader coverage (`Conv2d` too) — **verified working end-to-end** |
+| `int8`/`uint8` | ✅ `nn.Linear` only | `uint8` verified working end-to-end. `int8` on a model with `Conv2d` layers (every model in this package has one, in its patch embedding) requires `onnxruntime>=1.26.0` — older CPU builds (e.g. `1.23.2`, the newest available for Python 3.10 at time of writing) don't implement the `ConvInteger` op it produces. See [Known Limitations](#known-limitations). |
 | `int16`/`uint16` | ❌ Not supported by PyTorch's quantization at all | ⚠️ Accepted by the API but the resulting model commonly **fails to load** — see [Known Limitations](#known-limitations) |
 | Calibration data needed | No | No (uses dynamic quantization) |
 
@@ -55,7 +55,7 @@ Raises `ValueError` for `"int16"`/`"uint16"` (not supported by PyTorch's native 
 quantize_onnx(
     onnx_path: str | Path,
     output_path: str | Path,
-    weight_type: str = "int8",
+    weight_type: str = "uint8",
     verify: bool = False,
     atol: float = 5e-2,
     rtol: float = 5e-2,
@@ -66,11 +66,11 @@ quantize_onnx(
 |---|---|---|---|
 | `onnx_path` | `str` or `Path` | **required** | Path to an existing `.onnx` file — e.g. from [`export_onnx()`](export.md). |
 | `output_path` | `str` or `Path` | **required** | Destination for the quantized `.onnx` file. |
-| `weight_type` | `str` | `"int8"` | `"int8"` or `"uint8"` — verified working end-to-end. `"int16"`/`"uint16"` accepted but see [Known Limitations](#known-limitations). |
-| `verify` | `bool` | `False` | Load the quantized model in an `onnxruntime.InferenceSession` and run one forward pass, raising if it fails to load/run or if the output diverges from the original beyond `atol`/`rtol`. **Recommended** — this is what actually caught the int16 limitation below, rather than silently shipping a broken file. |
+| `weight_type` | `str` | `"uint8"` | `"uint8"` (default — verified working end-to-end, and ONNX Runtime's own recommended default for CPU execution) or `"int8"` (needs `onnxruntime>=1.26.0` for models with `Conv2d` layers — see [Known Limitations](#known-limitations)). `"int16"`/`"uint16"` accepted but see [Known Limitations](#known-limitations). |
+| `verify` | `bool` | `False` | Load the quantized model in an `onnxruntime.InferenceSession` and run one forward pass, raising if it fails to load/run or if the output diverges from the original beyond `atol`/`rtol`. **Recommended** — this is what actually caught the limitations below, rather than silently shipping a broken file. |
 | `atol`, `rtol` | `float` | `5e-2` | Tolerances for `verify`'s output comparison. Looser than `export_onnx()`'s `verify` (`1e-3`) since quantization is lossy by design. |
 
-Confirmed on `depth-anything-v2-vits`: `int8` quantization reduced the exported ONNX file size from 94.2 MB to 25.6 MB (3.7×).
+Confirmed on `depth-anything-v2-vits`: `int8`/`uint8` quantization reduced the exported ONNX file size from 94.2 MB to 25.6 MB (3.7×).
 
 ## Known Limitations
 
@@ -87,3 +87,14 @@ Confirmed on `depth-anything-v2-vits`: `int8` quantization reduced the exported 
   This is an invalid model. Type Error: Type 'tensor(int16)' ...
   ```
   Confirmed by testing against `depth-anything-v2`, not assumed from the API surface. **Always pass `verify=True`** when experimenting with `int16`/`uint16` — it will raise this error immediately instead of handing you a quantized file that silently doesn't work.
+
+### `weight_type="int8"` needs a recent-enough `onnxruntime` for `Conv2d` layers
+
+Every model in this package has at least one `Conv2d` layer (its patch embedding). Quantizing one to `int8` produces a `ConvInteger` op, which older ONNX Runtime CPU builds don't implement at all:
+
+```
+NOT_IMPLEMENTED: Could not find an implementation for ConvInteger(10) node
+with name '/net/patch_embed/proj/Conv_quant'
+```
+
+Confirmed: fails on `onnxruntime==1.23.2` (the newest release available for Python 3.10 at time of writing — caught by this package's own CI matrix, not assumed), works on `onnxruntime==1.26.0+`. `weight_type="uint8"` (the default) doesn't hit this — it produces different ops that are more broadly supported, and is what this package defaults to for exactly that reason. Pass `verify=True` if you do use `int8` — it will surface this immediately rather than shipping a quantized file that fails at load time for your users.
