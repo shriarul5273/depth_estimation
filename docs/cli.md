@@ -176,6 +176,46 @@ Model: depth-anything-v2-vitb
 
 ---
 
+### `export`
+
+Export a model to ONNX for deployment outside PyTorch. Requires the optional `onnx` package: `pip install "depth-estimation[export]"`.
+
+```
+depth-estimate export --model MODEL --output OUTPUT [OPTIONS]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--model` / `-m` | **required** | Model variant ID. |
+| `--output` / `-o` | **required** | Destination `.onnx` file path. |
+| `--input-size N` | `518` | Spatial size (H=W) of the dummy input used to trace the graph. Must be a size the model supports (e.g. a multiple of its patch size). |
+| `--opset N` | `17` | ONNX opset version. |
+| `--no-dynamic-batch` | off | Fix the exported graph to batch size 1 instead of allowing any batch size. |
+| `--dynamic-spatial` | off | Allow variable H/W in the exported graph. Many model families have constraints on input size that this doesn't validate — leave off unless you've confirmed the target model tolerates arbitrary sizes. |
+| `--verify` | off | Run the same input through PyTorch and the exported ONNX graph (via `onnxruntime`) and fail if they don't match. Recommended — it's the only way to catch a model that doesn't export correctly. |
+
+#### Verified working
+
+`depth-anything-v2`, `depth-anything-v3`, `depth-pro` — numerically verified to match the PyTorch model.
+
+#### Known limitation
+
+`pixel-perfect-depth` (and likely `marigold-dc`) sample random noise inside their diffusion `forward()` pass. Tracing freezes that noise as a constant, so the exported graph reuses the same noise every call instead of sampling fresh randomness — export succeeds without error but the output won't match PyTorch. `--verify` catches this.
+
+Models using `scaled_dot_product_attention` (`depth-anything-v3-*`, `pixel-perfect-depth`, `moge`, `vggt`, `omnivggt`) require a torch version whose ONNX exporter supports that op — added in a later torch release than this package's floor (`torch>=2.0`). `depth-anything-v2` and `depth-pro` are unaffected.
+
+#### Examples
+
+```bash
+# Basic export with verification
+depth-estimate export --model depth-anything-v2-vitb --output model.onnx --verify
+
+# Fixed batch size, larger input
+depth-estimate export --model depth-pro --output depth_pro.onnx --input-size 1536 --no-dynamic-batch
+```
+
+---
+
 ### `evaluate`
 
 Evaluate a model on a standard depth benchmark. Relative-depth models are aligned per-sample (least-squares scale + shift) before metric computation — detected automatically from `config.is_metric`.
