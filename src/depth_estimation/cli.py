@@ -341,6 +341,42 @@ def _run_info(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
+# export
+# ---------------------------------------------------------------------------
+
+
+def _run_export(args: argparse.Namespace) -> None:
+    from depth_estimation.models.auto import AutoDepthModel
+    from depth_estimation.export import export_onnx
+
+    if not args.quiet:
+        print(f"Loading model: {args.model}")
+
+    model = AutoDepthModel.from_pretrained(args.model, device=args.device)
+
+    if not args.quiet:
+        print(f"Exporting to ONNX (input_size={args.input_size}, opset={args.opset})...")
+
+    try:
+        export_onnx(
+            model,
+            args.output,
+            input_size=args.input_size,
+            opset_version=args.opset,
+            dynamic_batch=not args.no_dynamic_batch,
+            dynamic_spatial=args.dynamic_spatial,
+            verify=args.verify,
+        )
+    except Exception as e:
+        _die(f"Export failed: {e}")
+
+    if not args.quiet:
+        print(f"Saved: {args.output}")
+        if args.verify:
+            print("Verified: ONNX output matches PyTorch output.")
+
+
+# ---------------------------------------------------------------------------
 # evaluate
 # ---------------------------------------------------------------------------
 
@@ -545,6 +581,52 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_info.add_argument("--json", action="store_true", help="Output as JSON.")
 
+    # ---- export ----
+    p_export = sub.add_parser(
+        "export", help="Export a model to ONNX for deployment outside PyTorch."
+    )
+    p_export.add_argument(
+        "--model",
+        "-m",
+        required=True,
+        help="Model variant ID (e.g. depth-anything-v2-vitb).",
+    )
+    p_export.add_argument(
+        "--output", "-o", required=True, help="Destination .onnx file path."
+    )
+    p_export.add_argument(
+        "--input-size",
+        type=int,
+        default=518,
+        metavar="N",
+        help="Spatial size (H=W) of the dummy input used to trace the graph "
+        "(default: 518). Must be a size the model supports, e.g. a "
+        "multiple of its patch size.",
+    )
+    p_export.add_argument(
+        "--opset", type=int, default=17, metavar="N", help="ONNX opset version (default: 17)."
+    )
+    p_export.add_argument(
+        "--no-dynamic-batch",
+        action="store_true",
+        help="Fix the exported graph to batch size 1 instead of allowing any batch size.",
+    )
+    p_export.add_argument(
+        "--dynamic-spatial",
+        action="store_true",
+        help="Allow variable H/W in the exported graph. Off by default — many "
+        "model families have constraints on input size (multiple-of-patch-size, "
+        "or an internally fixed resolution) that this doesn't validate.",
+    )
+    p_export.add_argument(
+        "--verify",
+        action="store_true",
+        help="Run the same input through PyTorch and the exported ONNX graph "
+        "(via onnxruntime) and fail if they don't match. Recommended — this is "
+        "the only way to catch models that don't export correctly (e.g. "
+        "diffusion-based models with internal random sampling).",
+    )
+
     # ---- evaluate ----
     p_eval = sub.add_parser(
         "evaluate",
@@ -661,6 +743,7 @@ def main() -> None:
         "predict": _run_predict,
         "list-models": _run_list_models,
         "info": _run_info,
+        "export": _run_export,
         "evaluate": _run_evaluate,
     }
 

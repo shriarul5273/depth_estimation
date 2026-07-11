@@ -52,6 +52,11 @@ Issues = "https://github.com/shriarul5273/depth_estimation/issues"
 dev = [
     "pytest>=7.0",
     "pytest-cov",
+    "onnx>=1.14",
+    "onnxruntime",
+]
+export = [
+    "onnx>=1.14",
 ]
 
 [project.scripts]
