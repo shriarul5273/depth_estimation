@@ -1,0 +1,44 @@
+# Runs the tests excluded from the main CI workflow (pytest -m slow):
+# the offline-but-compute-heavy DepthPro/PixelPerfectDepth cases, and —
+# most importantly — all 28 registered model variants with real pretrained
+# weights downloaded from the Hugging Face Hub. These are slow (network,
+# several GB of downloads) so they don't run on every push/PR; instead
+# this runs on a weekly schedule to catch real regressions eventually,
+# plus workflow_dispatch for an on-demand run.
+
+name: Slow tests
+
+on:
+  schedule:
+    # Every Monday at 04:00 UTC.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  slow:
+    name: slow tests (pretrained + offline-heavy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v6.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Show installed packages
+        run: python -m pip list
+
+      - name: Run slow tests
+        run: python -m pytest -v -rsx tests -m slow

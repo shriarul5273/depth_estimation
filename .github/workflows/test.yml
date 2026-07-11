@@ -1,7 +1,8 @@
 # This workflow runs the test suite across a matrix of Python versions and
 # torch versions on GitHub Actions — 3 Python versions x 3 torch "branches"
 # (our declared floor, the old hard-pinned version, and unpinned-latest),
-# to catch both Python-compat and torch-compat breaks.
+# to catch both Python-compat and torch-compat breaks. It also lints with
+# ruff and does a smoke build of the package on every push/PR.
 
 name: CI
 
@@ -15,7 +16,52 @@ on:
 permissions:
   contents: read
 
+# Cancel a still-running CI run for this branch/PR when a new commit is
+# pushed, instead of letting superseded runs finish and waste CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ruff
+        run: python -m pip install ruff
+
+      - name: Run ruff check
+        run: ruff check .
+
+  build:
+    name: build (smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tooling
+        run: python -m pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check package metadata
+        run: twine check dist/*
+
   test:
     name: test (py${{ matrix.python-version }}, torch==${{ matrix.torch-version || 'latest' }})
     runs-on: ubuntu-latest
