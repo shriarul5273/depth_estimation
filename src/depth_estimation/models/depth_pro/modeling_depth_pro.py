@@ -214,7 +214,7 @@ def create_vit(
         model.model = _resize_vit(model.model, img_size=img_size)
 
     if checkpoint_uri is not None:
-        state_dict = torch.load(checkpoint_uri, map_location="cpu")
+        state_dict = torch.load(checkpoint_uri, map_location="cpu", weights_only=True)
         missing_keys, unexpected_keys = model.load_state_dict(
             state_dict=state_dict, strict=False
         )
@@ -885,7 +885,7 @@ class DepthProModel(BaseDepthModel):
             filename=config.hub_filename,
             repo_type="model",
         )
-        state_dict = torch.load(checkpoint_path, map_location="cpu")
+        state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         missing_keys, unexpected_keys = net.load_state_dict(
             state_dict=state_dict, strict=True
         )

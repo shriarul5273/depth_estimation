@@ -940,7 +940,7 @@ class PixelPerfectDepthModel(BaseDepthModel):
             filename=config.semantics_hub_filename,
             repo_type="model",
         )
-        da_v2_state = torch.load(da_v2_path, map_location="cpu")
+        da_v2_state = torch.load(da_v2_path, map_location="cpu", weights_only=True)
         missing, unexpected = net.semantics_encoder.load_state_dict(
             da_v2_state, strict=False
         )
@@ -957,7 +957,7 @@ class PixelPerfectDepthModel(BaseDepthModel):
             filename=config.hub_filename,
             repo_type="model",
         )
-        ppd_state = torch.load(ppd_path, map_location="cpu")
+        ppd_state = torch.load(ppd_path, map_location="cpu", weights_only=True)
         missing, unexpected = net.load_state_dict(ppd_state, strict=False)
         logger.info(
             "Loaded PPD checkpoint from %s (missing=%d, unexpected=%d)",
