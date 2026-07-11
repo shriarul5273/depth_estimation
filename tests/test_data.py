@@ -255,7 +255,9 @@ class TestLoadDataset:
         img_dir.mkdir()
         _write_rgb(img_dir / "a.png")
 
-        identity = lambda pv, dm, vm: (pv, dm, vm)
+        def identity(pv, dm, vm):
+            return pv, dm, vm
+
         ds = load_dataset("folder", image_dir=str(img_dir), transform=identity)
         assert ds.transform is identity
 

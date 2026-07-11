@@ -23,9 +23,11 @@ logger = logging.getLogger(__name__)
 
 def _check_diffusers_available():
     try:
-        from diffusers import MarigoldDepthPipeline, DDIMScheduler
+        import diffusers
 
-        return True
+        return hasattr(diffusers, "MarigoldDepthPipeline") and hasattr(
+            diffusers, "DDIMScheduler"
+        )
     except ImportError:
         return False
 
