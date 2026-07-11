@@ -202,7 +202,7 @@ class DepthProcessor:
         """Load image from a URL."""
         import urllib.request
 
-        with urllib.request.urlopen(url) as response:
+        with urllib.request.urlopen(url, timeout=30) as response:
             data = response.read()
         img = Image.open(io.BytesIO(data)).convert("RGB")
         return np.array(img)

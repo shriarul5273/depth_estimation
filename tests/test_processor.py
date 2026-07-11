@@ -67,6 +67,36 @@ class TestPreprocess:
         assert vals.max() < 10.0  # Should be roughly in [-2, 3] range
         assert vals.min() > -5.0
 
+    def test_load_from_url_uses_timeout(self, monkeypatch, sample_pil_image):
+        """_load_from_url must not hang forever on a stalled connection."""
+        import io
+        import urllib.request
+
+        buf = io.BytesIO()
+        sample_pil_image.save(buf, format="PNG")
+        png_bytes = buf.getvalue()
+
+        captured = {}
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return png_bytes
+
+        def _fake_urlopen(url, timeout=None):
+            captured["timeout"] = timeout
+            return _FakeResponse()
+
+        monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
+        arr = DepthProcessor._load_from_url("http://example.com/fake.png")
+        assert captured["timeout"] == 30
+        assert arr.shape == (480, 640, 3)
+
 
 class TestPostprocess:
     def test_basic(self, processor):

@@ -5,8 +5,8 @@ Reference:
     ECCV 2012.  http://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html
 
 Files downloaded automatically on first use (~2.8 GB + tiny split file):
-    Dataset:  http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat
-    Splits:   http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat
+    Dataset:  https://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat
+    Splits:   https://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat
 
 Requires:  h5py  (``pip install h5py``)
 """
@@ -25,9 +25,9 @@ from .hub import download_file, get_cache_dir
 logger = logging.getLogger(__name__)
 
 _MAT_URL = (
-    "http://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat"
+    "https://horatio.cs.nyu.edu/mit/silberman/nyu_depth_v2/nyu_depth_v2_labeled.mat"
 )
-_SPLIT_URL = "http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat"
+_SPLIT_URL = "https://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat"
 # Fallback split sizes when splits.mat is unavailable
 _N_TRAIN = 795
 _N_TOTAL = 1449
