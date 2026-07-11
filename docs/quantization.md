@@ -1,0 +1,89 @@
+# Quantization
+
+Reduce a model's numeric precision — two independent paths depending on what you're targeting.
+
+## Quick Example
+
+```python
+from depth_estimation import AutoDepthModel, quantize_model, quantize_onnx
+
+model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
+
+# In-process PyTorch — GPU inference speedup, halves memory
+model.quantize(dtype="float16")
+
+# ...or int8 dynamic quantization (CPU inference, nn.Linear only)
+qmodel = quantize_model(model, dtype="int8")  # returns a NEW model, see below
+
+# Post-export ONNX Runtime quantization — broader op coverage (covers Conv2d too)
+model.export_onnx("model.onnx")
+quantize_onnx("model.onnx", "model_int8.onnx", weight_type="int8", verify=True)
+```
+
+## Which path should I use?
+
+| | `quantize_model()` | `quantize_onnx()` |
+|---|---|---|
+| Operates on | A PyTorch model, in-process | An already-exported `.onnx` file |
+| `float16`/`bfloat16` | ✅ Simple dtype cast, every layer | Not applicable — export first at your target precision instead |
+| `int8`/`uint8` | ✅ `nn.Linear` only | ✅ Broader coverage (`Conv2d` too) — **verified working end-to-end** |
+| `int16`/`uint16` | ❌ Not supported by PyTorch's quantization at all | ⚠️ Accepted by the API but the resulting model commonly **fails to load** — see [Known Limitations](#known-limitations) |
+| Calibration data needed | No | No (uses dynamic quantization) |
+
+## `quantize_model()`
+
+```python
+quantize_model(model: nn.Module, dtype: str = "float16") -> nn.Module
+```
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `model` | `nn.Module` | **required** | Any model. |
+| `dtype` | `str` | `"float16"` | `"float16"` or `"bfloat16"` — a simple precision cast, every parameter/buffer affected, structure unchanged. Intended for GPU inference (float16 on CPU is slow/partially unsupported for many ops in vanilla PyTorch). Or `"int8"` — dynamic quantization of `nn.Linear` layers only, via `torch.quantization.quantize_dynamic`; intended for CPU inference, no calibration data needed. |
+
+**Return value depends on `dtype`** — this is the one thing to watch:
+- `"float16"`/`"bfloat16"`: returns `model`, mutated in-place.
+- `"int8"`: returns a **new** model (verified: `result is model` → `False`, though `type(result) is type(model)` holds). The original `model` argument is left unmodified — dynamic quantization replaces `nn.Linear` instances with quantized equivalents rather than mutating them. Don't chain further calls assuming it's the same object.
+
+Also available as `model.quantize(dtype=...)` (`BaseDepthModel.quantize()`), with the same return-value caveat.
+
+Raises `ValueError` for `"int16"`/`"uint16"` (not supported by PyTorch's native quantization at all) or any other unrecognized `dtype`.
+
+## `quantize_onnx()`
+
+```python
+quantize_onnx(
+    onnx_path: str | Path,
+    output_path: str | Path,
+    weight_type: str = "int8",
+    verify: bool = False,
+    atol: float = 5e-2,
+    rtol: float = 5e-2,
+) -> Path
+```
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `onnx_path` | `str` or `Path` | **required** | Path to an existing `.onnx` file — e.g. from [`export_onnx()`](export.md). |
+| `output_path` | `str` or `Path` | **required** | Destination for the quantized `.onnx` file. |
+| `weight_type` | `str` | `"int8"` | `"int8"` or `"uint8"` — verified working end-to-end. `"int16"`/`"uint16"` accepted but see [Known Limitations](#known-limitations). |
+| `verify` | `bool` | `False` | Load the quantized model in an `onnxruntime.InferenceSession` and run one forward pass, raising if it fails to load/run or if the output diverges from the original beyond `atol`/`rtol`. **Recommended** — this is what actually caught the int16 limitation below, rather than silently shipping a broken file. |
+| `atol`, `rtol` | `float` | `5e-2` | Tolerances for `verify`'s output comparison. Looser than `export_onnx()`'s `verify` (`1e-3`) since quantization is lossy by design. |
+
+Confirmed on `depth-anything-v2-vits`: `int8` quantization reduced the exported ONNX file size from 94.2 MB to 25.6 MB (3.7×).
+
+## Known Limitations
+
+### `quantize_model(dtype="int8")` uses a deprecated PyTorch API
+
+`torch.quantization.quantize_dynamic` raises a `DeprecationWarning` on recent torch releases, in favor of migrating to `torchao`. This package doesn't migrate to `torchao` yet — that's a separate, new optional dependency with its own version-compat surface across our supported torch range (`torch>=2.0`) that hasn't been verified. If a future torch release actually removes the deprecated API, `quantize_model(dtype="int8")` will start raising an error. `quantize_onnx()`'s int8 path is unaffected — it's a different library (ONNX Runtime) entirely.
+
+### `int16`/`uint16` don't actually work
+
+- `quantize_model()` rejects `int16`/`uint16` outright with a clear error — PyTorch's native quantization stack only has `torch.qint8`/`quint8`/`qint32`, no 16-bit integer quantized dtype at all.
+- `quantize_onnx()` *accepts* `weight_type="int16"`/`"uint16"` (ONNX Runtime's `QuantType` enum has `QInt16`/`QUInt16`) and the quantization step itself succeeds — but the resulting file then **fails to load** in ONNX Runtime's CPU execution provider:
+  ```
+  INVALID_GRAPH: Load model from quant_int16.onnx failed:
+  This is an invalid model. Type Error: Type 'tensor(int16)' ...
+  ```
+  Confirmed by testing against `depth-anything-v2`, not assumed from the API surface. **Always pass `verify=True`** when experimenting with `int16`/`uint16` — it will raise this error immediately instead of handing you a quantized file that silently doesn't work.

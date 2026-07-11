@@ -124,6 +124,33 @@ def __getattr__(name):
 
         globals()["export_onnx"] = export_onnx
         return export_onnx
+    # Pruning
+    if name == "prune_model":
+        from .pruning import prune_model
+
+        globals()["prune_model"] = prune_model
+        return prune_model
+    if name == "compute_sparsity":
+        from .pruning import compute_sparsity
+
+        globals()["compute_sparsity"] = compute_sparsity
+        return compute_sparsity
+    if name == "make_pruning_permanent":
+        from .pruning import make_pruning_permanent
+
+        globals()["make_pruning_permanent"] = make_pruning_permanent
+        return make_pruning_permanent
+    # Quantization
+    if name == "quantize_model":
+        from .quantization import quantize_model
+
+        globals()["quantize_model"] = quantize_model
+        return quantize_model
+    if name == "quantize_onnx":
+        from .quantization import quantize_onnx
+
+        globals()["quantize_onnx"] = quantize_onnx
+        return quantize_onnx
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -154,6 +181,13 @@ __all__ = [
     "viz",
     # ONNX export
     "export_onnx",
+    # Pruning
+    "prune_model",
+    "compute_sparsity",
+    "make_pruning_permanent",
+    # Quantization
+    "quantize_model",
+    "quantize_onnx",
 ]
 
 try:

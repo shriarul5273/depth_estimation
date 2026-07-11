@@ -289,6 +289,56 @@ class BaseDepthModel(nn.Module):
             input_size = getattr(self.config, "input_size", 518)
         return _export_onnx(self, output_path, input_size=input_size, **kwargs)
 
+    def prune(self, amount: float = 0.3, **kwargs: Any) -> "BaseDepthModel":
+        """Prune this model's weights in-place. See
+        :func:`depth_estimation.pruning.prune_model` for the full parameter
+        list (``method``, ``module_types``, ``exclude``, ``make_permanent``).
+
+        Args:
+            amount: Fraction of weights to zero out per layer, in ``[0, 1)``.
+            **kwargs: Forwarded to :func:`depth_estimation.pruning.prune_model`.
+
+        Returns:
+            ``self``, for chaining (e.g. ``model.prune(0.3).export_onnx(...)``).
+
+        Example::
+
+            model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
+            model.prune(amount=0.3)
+            model.export_onnx("pruned.onnx", verify=True)
+        """
+        from .pruning import prune_model as _prune_model
+
+        return _prune_model(self, amount=amount, **kwargs)
+
+    def quantize(self, dtype: str = "float16") -> nn.Module:
+        """Reduce this model's numeric precision. See
+        :func:`depth_estimation.quantization.quantize_model` for the full
+        parameter list and important caveats (int8 deprecation risk,
+        int16/uint16 not supported here at all).
+
+        Args:
+            dtype: ``"float16"``, ``"bfloat16"``, or ``"int8"``.
+
+        Returns:
+            For ``"float16"``/``"bfloat16"``: ``self``, mutated in-place
+            and returned for chaining.
+            For ``"int8"``: a **new** model — unlike :meth:`prune` and
+            :meth:`export_onnx`, this does *not* return ``self``, since
+            dynamic quantization replaces ``nn.Linear`` instances rather
+            than mutating them. Don't chain further calls on this
+            method's return value assuming it's the same object.
+
+        Example::
+
+            model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
+            model.quantize(dtype="float16")  # in-place, returns self
+            qmodel = model.quantize(dtype="int8")  # NOT in-place
+        """
+        from .quantization import quantize_model as _quantize_model
+
+        return _quantize_model(self, dtype=dtype)
+
 
 def _auto_detect_device() -> str:
     """Auto-detect the best available device."""

@@ -1,0 +1,212 @@
+"""Precision reduction / quantization for depth estimation models.
+
+Two independent paths, depending on what you're targeting:
+
+- :func:`quantize_model` — in-process PyTorch precision casting/quantization.
+  ``"float16"``/``"bfloat16"`` are simple dtype casts (GPU inference
+  speedup, halves memory, no accuracy-recovery step needed). ``"int8"``
+  uses torch's dynamic quantization of ``nn.Linear`` layers only (CPU
+  inference speedup, no calibration data needed).
+- :func:`quantize_onnx` — post-export quantization via ONNX Runtime,
+  operating on an already-exported ``.onnx`` file (see
+  :mod:`depth_estimation.export`). Broader op coverage than PyTorch's own
+  dynamic quantization (covers ``Conv2d``, not just ``Linear``).
+
+Known limitations (verified, not guessed):
+    - ``quantize_model(dtype="int8")`` uses ``torch.quantization.quantize_dynamic``,
+      which is **deprecated** as of recent torch releases in favor of
+      ``torchao``. This package doesn't migrate to ``torchao`` yet, since
+      that's a separate new dependency with its own version-compat surface
+      to verify — if a future torch release actually removes the
+      deprecated API, this specific path will start raising an error.
+      ``quantize_onnx()``'s int8 path is unaffected (different library).
+    - ``int16``/``uint16`` are **not supported by PyTorch's native
+      quantization at all** (``torch.qint8``/``quint8``/``qint32`` are
+      the only quantized dtypes it has) — ``quantize_model()`` raises a
+      clear error for these.
+    - ``quantize_onnx()``'s ``int16``/``uint16`` weight types are accepted
+      by ONNX Runtime's quantization *API*, but the resulting model
+      commonly **fails to load** in ONNX Runtime's CPU execution
+      provider — confirmed by testing (``depth-anything-v2``):
+      ``INVALID_GRAPH: Type 'tensor(int16)' ...``. Pass ``verify=True``
+      to catch this rather than silently shipping a broken quantized
+      model — it's exactly what caught this in the first place. Only
+      ``int8``/``uint8`` are verified working end-to-end.
+"""
+
+import logging
+from pathlib import Path
+from typing import Union
+
+import torch
+import torch.nn as nn
+
+logger = logging.getLogger(__name__)
+
+_CAST_DTYPES = {"float16": torch.float16, "bfloat16": torch.bfloat16}
+
+# ONNX Runtime quantization weight types. int8/uint8 are verified working;
+# int16/uint16 are accepted by the quantization API but commonly fail to
+# load afterward — see the module docstring.
+_ONNX_WEIGHT_TYPES = {"int8", "uint8", "int16", "uint16"}
+
+
+def quantize_model(model: nn.Module, dtype: str = "float16") -> nn.Module:
+    """Reduce a PyTorch model's numeric precision, in-process.
+
+    Args:
+        model: Any ``nn.Module``.
+        dtype: ``"float16"`` or ``"bfloat16"`` — a simple precision cast;
+            every parameter/buffer is affected, structure is unchanged.
+            Intended for GPU inference (float16 on CPU is slow/partially
+            unsupported in vanilla PyTorch for many ops). Or ``"int8"`` —
+            dynamic quantization of ``nn.Linear`` layers only, via
+            ``torch.quantization.quantize_dynamic``; intended for CPU
+            inference, no calibration data needed.
+
+    Returns:
+        For ``"float16"``/``"bfloat16"``: ``model``, mutated in-place and
+        returned for chaining.
+        For ``"int8"``: a **new** model — the original ``model`` argument
+        is left unmodified, since dynamic quantization replaces
+        ``nn.Linear`` instances with quantized equivalents rather than
+        mutating them.
+
+    Raises:
+        ValueError: For ``"int16"``/``"uint16"`` (not supported by
+            PyTorch's native quantization at all — use
+            :func:`quantize_onnx` instead) or any other unrecognized
+            ``dtype``.
+    """
+    if dtype in _CAST_DTYPES:
+        return model.to(_CAST_DTYPES[dtype])
+
+    if dtype == "int8":
+        return torch.quantization.quantize_dynamic(
+            model, {nn.Linear}, dtype=torch.qint8
+        )
+
+    if dtype in ("int16", "uint16"):
+        raise ValueError(
+            f"{dtype!r} is not supported by PyTorch's native quantization — "
+            "torch.qint8/quint8/qint32 are the only quantized dtypes it has. "
+            "Use quantize_onnx() instead, which wraps ONNX Runtime's "
+            "quantization (though see that function's docstring: int16/"
+            "uint16 there commonly fail to load afterward too — only "
+            "int8/uint8 are verified working end-to-end)."
+        )
+
+    raise ValueError(
+        f"Unknown dtype {dtype!r}. Available: {list(_CAST_DTYPES)} + ['int8'] "
+        "(see quantize_onnx() for int16/uint16, with caveats)."
+    )
+
+
+def quantize_onnx(
+    onnx_path: Union[str, Path],
+    output_path: Union[str, Path],
+    weight_type: str = "int8",
+    verify: bool = False,
+    atol: float = 5e-2,
+    rtol: float = 5e-2,
+) -> Path:
+    """Quantize an already-exported ONNX model via ONNX Runtime's dynamic
+    quantization (no calibration data needed).
+
+    Args:
+        onnx_path: Path to an existing ``.onnx`` file, e.g. from
+            :func:`depth_estimation.export.export_onnx`.
+        output_path: Destination for the quantized ``.onnx`` file.
+        weight_type: ``"int8"`` (default) or ``"uint8"`` — verified
+            working end-to-end. ``"int16"``/``"uint16"`` are accepted but
+            commonly fail to *load* afterward in ONNX Runtime's CPU
+            execution provider — see this module's docstring. Use
+            ``verify=True`` to catch that rather than silently producing
+            a broken file.
+        verify: If True, load the quantized model in an
+            ``onnxruntime.InferenceSession`` and run one forward pass
+            with random input, raising if it fails to load/run, or if
+            the output doesn't loosely match the original ``onnx_path``
+            model's output (quantization is lossy by design, so the
+            tolerance here is much looser than
+            :func:`~depth_estimation.export.export_onnx`'s ``verify``).
+        atol, rtol: Tolerances for ``verify``'s output comparison.
+
+    Returns:
+        ``output_path``, as a ``Path``.
+
+    Raises:
+        ValueError: For an unrecognized ``weight_type``.
+        ImportError: If the optional ``onnxruntime`` package isn't
+            installed.
+    """
+    if weight_type not in _ONNX_WEIGHT_TYPES:
+        raise ValueError(
+            f"Unknown weight_type {weight_type!r}. Available: "
+            f"{sorted(_ONNX_WEIGHT_TYPES)}"
+        )
+
+    try:
+        from onnxruntime.quantization import QuantType, quantize_dynamic
+    except ImportError as e:
+        raise ImportError(
+            "quantize_onnx() requires the optional 'onnxruntime' package: "
+            "pip install onnxruntime"
+        ) from e
+
+    type_map = {
+        "int8": QuantType.QInt8,
+        "uint8": QuantType.QUInt8,
+        "int16": QuantType.QInt16,
+        "uint16": QuantType.QUInt16,
+    }
+
+    onnx_path = Path(onnx_path)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    quantize_dynamic(str(onnx_path), str(output_path), weight_type=type_map[weight_type])
+    logger.info("Quantized ONNX model (%s) written to %s", weight_type, output_path)
+
+    if verify:
+        _verify_onnx_quantization(onnx_path, output_path, atol=atol, rtol=rtol)
+
+    return output_path
+
+
+def _verify_onnx_quantization(
+    original_path: Path, quantized_path: Path, atol: float, rtol: float
+) -> None:
+    try:
+        import numpy as np
+        import onnxruntime as ort
+    except ImportError as e:
+        raise ImportError(
+            "verify=True requires the optional 'onnxruntime' package: "
+            "pip install onnxruntime"
+        ) from e
+
+    orig_sess = ort.InferenceSession(str(original_path), providers=["CPUExecutionProvider"])
+    input_meta = orig_sess.get_inputs()[0]
+    input_name = input_meta.name
+    shape = [d if isinstance(d, int) else 1 for d in input_meta.shape]
+    dummy = np.random.randn(*shape).astype(np.float32)
+
+    orig_out = orig_sess.run(None, {input_name: dummy})[0]
+
+    quant_sess = ort.InferenceSession(str(quantized_path), providers=["CPUExecutionProvider"])
+    quant_out = quant_sess.run(None, {input_name: dummy})[0]
+
+    np.testing.assert_allclose(
+        orig_out,
+        quant_out,
+        atol=atol,
+        rtol=rtol,
+        err_msg=(
+            "Quantized ONNX model's output diverges from the original beyond "
+            "tolerance. For int16/uint16, this may instead show up as the "
+            "quantized model failing to even load — see this module's "
+            "docstring for the known limitation."
+        ),
+    )
+    logger.info("ONNX quantization verified: matches original within atol=%s rtol=%s", atol, rtol)
