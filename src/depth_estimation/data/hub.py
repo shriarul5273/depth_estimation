@@ -67,8 +67,21 @@ def download_file(url: str, dest: Path, desc: Optional[str] = None) -> Path:
     return dest
 
 
+def _is_within_directory(directory: Path, target: Path) -> bool:
+    """Check that *target* resolves to a path inside *directory* (no traversal)."""
+    try:
+        target.resolve().relative_to(directory.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def extract_archive(src: Path, dest: Path) -> Path:
-    """Extract a .tar.gz / .tgz / .tar.bz2 / .tar / .zip archive to *dest*."""
+    """Extract a .tar.gz / .tgz / .tar.bz2 / .tar / .zip archive to *dest*.
+
+    Rejects archive members whose path would resolve outside *dest*
+    (a "zip slip" / path-traversal check) before extracting anything.
+    """
     src, dest = Path(src), Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
     name = src.name.lower()
@@ -76,9 +89,28 @@ def extract_archive(src: Path, dest: Path) -> Path:
     logger.info("Extracting %s → %s", src.name, dest)
     if name.endswith((".tar.gz", ".tgz", ".tar.bz2", ".tar")):
         with tarfile.open(src, "r:*") as tf:
-            tf.extractall(dest)
+            for member in tf.getmembers():
+                if not _is_within_directory(dest, dest / member.name):
+                    raise ValueError(
+                        f"Unsafe path in archive {src.name}: {member.name!r} "
+                        "resolves outside the extraction directory"
+                    )
+            try:
+                # filter="data" (Python 3.12+, backported to patched 3.10/3.11)
+                # additionally strips permissions/ownership and rejects
+                # device/special files — belt-and-suspenders on top of the
+                # path check above.
+                tf.extractall(dest, filter="data")
+            except TypeError:
+                tf.extractall(dest)
     elif name.endswith(".zip"):
         with zipfile.ZipFile(src) as zf:
+            for member in zf.namelist():
+                if not _is_within_directory(dest, dest / member):
+                    raise ValueError(
+                        f"Unsafe path in archive {src.name}: {member!r} "
+                        "resolves outside the extraction directory"
+                    )
             zf.extractall(dest)
     else:
         raise ValueError(f"Unsupported archive format: {src}")

@@ -18,7 +18,7 @@ from depth_estimation.data import (
     FolderDataset,
     load_dataset,
 )
-from depth_estimation.data.hub import get_cache_dir
+from depth_estimation.data.hub import extract_archive, get_cache_dir
 
 
 # ---------------------------------------------------------------------------
@@ -293,3 +293,76 @@ class TestGetCacheDir:
     def test_returns_path_object(self):
         cache = get_cache_dir("kitti_eigen")
         assert isinstance(cache, Path)
+
+
+class TestExtractArchive:
+    def test_extracts_normal_zip(self, tmp_path):
+        import zipfile
+
+        archive = tmp_path / "data.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("inner/file.txt", "hello")
+
+        dest = tmp_path / "out"
+        extract_archive(archive, dest)
+        assert (dest / "inner" / "file.txt").read_text() == "hello"
+
+    def test_extracts_normal_tar(self, tmp_path):
+        import tarfile
+
+        src_file = tmp_path / "file.txt"
+        src_file.write_text("hello")
+        archive = tmp_path / "data.tar.gz"
+        with tarfile.open(archive, "w:gz") as tf:
+            tf.add(src_file, arcname="inner/file.txt")
+
+        dest = tmp_path / "out"
+        extract_archive(archive, dest)
+        assert (dest / "inner" / "file.txt").read_text() == "hello"
+
+    def test_rejects_path_traversal_zip(self, tmp_path):
+        """A malicious zip with a '../' entry must not write outside dest."""
+        import zipfile
+
+        archive = tmp_path / "evil.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("../../evil.txt", "pwned")
+
+        dest = tmp_path / "sandbox" / "out"
+        with pytest.raises(ValueError, match="Unsafe path"):
+            extract_archive(archive, dest)
+        # Nothing should have been written outside the sandbox.
+        assert not (tmp_path / "evil.txt").exists()
+
+    def test_rejects_path_traversal_tar(self, tmp_path):
+        """A malicious tar with a '../' entry must not write outside dest."""
+        import tarfile
+
+        src_file = tmp_path / "payload.txt"
+        src_file.write_text("pwned")
+        archive = tmp_path / "evil.tar"
+        with tarfile.open(archive, "w") as tf:
+            tf.add(src_file, arcname="../../evil.txt")
+
+        dest = tmp_path / "sandbox" / "out"
+        with pytest.raises(ValueError, match="Unsafe path"):
+            extract_archive(archive, dest)
+        assert not (tmp_path / "evil.txt").exists()
+
+    def test_rejects_absolute_path_zip(self, tmp_path):
+        """A malicious zip with an absolute-path entry must be rejected."""
+        import zipfile
+
+        archive = tmp_path / "evil_abs.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("/etc/evil.txt", "pwned")
+
+        dest = tmp_path / "sandbox" / "out"
+        with pytest.raises(ValueError, match="Unsafe path"):
+            extract_archive(archive, dest)
+
+    def test_unsupported_format_raises(self, tmp_path):
+        archive = tmp_path / "data.rar"
+        archive.write_bytes(b"fake")
+        with pytest.raises(ValueError, match="Unsupported archive format"):
+            extract_archive(archive, tmp_path / "out")
