@@ -277,6 +277,40 @@ Verified working for `depth-anything-v2`, `depth-anything-v3`, and `depth-pro`. 
 
 </details>
 
+<details>
+<summary><b>Pruning</b> — reduce effective parameter count</summary>
+
+```python
+from depth_estimation import AutoDepthModel, prune_model, compute_sparsity
+
+model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
+prune_model(model, amount=0.3)          # zero out the smallest-magnitude 30% of weights
+print(compute_sparsity(model)["overall"])  # ~0.3
+
+model.export_onnx("pruned.onnx", verify=True)  # pruned models export like any other
+```
+
+Pure PyTorch (`torch.nn.utils.prune`) — no special hardware or SDK. See [docs/pruning.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/pruning.md) for prune-aware fine-tuning and what pruning does/doesn't buy you (it zeros weights, it doesn't shrink tensors).
+
+</details>
+
+<details>
+<summary><b>Quantization</b> — float16/bfloat16/int8, plus ONNX int8/uint8</summary>
+
+```python
+from depth_estimation import AutoDepthModel, quantize_onnx
+
+model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
+model.quantize(dtype="float16")   # in-place GPU precision cast
+
+model.export_onnx("model.onnx")
+quantize_onnx("model.onnx", "model_uint8.onnx", verify=True)  # default weight_type="uint8"
+```
+
+See [docs/quantization.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/quantization.md) — including which formats are actually verified working (`int16`/`uint16` are **not**, despite being accepted by the underlying APIs, and `int8` needs `onnxruntime>=1.26.0` for models with `Conv2d` layers).
+
+</details>
+
 ---
 
 ## Adding a New Model
