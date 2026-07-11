@@ -56,7 +56,7 @@ class ZoeDepthModel(BaseDepthModel):
                 "ZoeDepth requires the `transformers` package. "
                 "Install with: pip install transformers"
             )
-        device_id = 0 if self._device_str == "cuda" else -1
+        device_id = 0 if self.device.type == "cuda" else -1
         self._pipeline = hf_pipeline(
             task="depth-estimation",
             model=self.config.hf_model_id,
@@ -120,7 +120,7 @@ class ZoeDepthModel(BaseDepthModel):
 
         config = ZoeDepthConfig(backbone=backbone)
         model = cls(config)
-        model._device_str = device
+        model = model.to(device)
         model._ensure_pipeline()
 
         logger.info(f"Loaded ZoeDepth from {config.hf_model_id}")
