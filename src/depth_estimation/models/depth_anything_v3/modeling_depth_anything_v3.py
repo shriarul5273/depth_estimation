@@ -838,6 +838,12 @@ class DinoVisionTransformer(nn.Module):
     ):
         B, S, _, H, W = x.shape
         x = self.prepare_tokens_with_masks(x)
+        # Tracks the running "local" x for the cat_token head and for the
+        # reference-view reorder below; only meaningfully overwritten once
+        # the loop reaches a local-attention block (see `local_x = x` below),
+        # but must be bound here so the reorder is well-defined even if a
+        # future alt_start=0/1 config reaches it before that first write.
+        local_x = x
         output, total_block_len, aux_output = [], len(self.blocks), []
         blocks_to_take = (
             range(total_block_len - n, total_block_len) if isinstance(n, int) else n

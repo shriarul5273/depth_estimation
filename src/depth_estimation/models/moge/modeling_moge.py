@@ -564,8 +564,11 @@ class _Block(nn.Module):
         self.sample_drop_ratio = drop_path
 
     def forward(self, x: Tensor) -> Tensor:
-        attn_res = lambda x: self.ls1(self.attn(self.norm1(x)))
-        ffn_res = lambda x: self.ls2(self.mlp(self.norm2(x)))
+        def attn_res(x):
+            return self.ls1(self.attn(self.norm1(x)))
+
+        def ffn_res(x):
+            return self.ls2(self.mlp(self.norm2(x)))
         if self.training and self.sample_drop_ratio > 0.1:
             x = _drop_add_residual_stochastic_depth(x, attn_res, self.sample_drop_ratio)
             x = _drop_add_residual_stochastic_depth(x, ffn_res, self.sample_drop_ratio)
@@ -582,10 +585,13 @@ class _NestedTensorBlock(_Block):
     def forward_nested(self, x_list):
         assert isinstance(self.attn, _MemEffAttention)
         if self.training and self.sample_drop_ratio > 0.0:
-            attn_res = lambda x, attn_bias=None: self.attn(
-                self.norm1(x), attn_bias=attn_bias
-            )
-            ffn_res = lambda x, attn_bias=None: self.mlp(self.norm2(x))
+
+            def attn_res(x, attn_bias=None):
+                return self.attn(self.norm1(x), attn_bias=attn_bias)
+
+            def ffn_res(x, attn_bias=None):
+                return self.mlp(self.norm2(x))
+
             sv1 = self.ls1.gamma if isinstance(self.ls1, _LayerScale) else None
             sv2 = self.ls2.gamma if isinstance(self.ls1, _LayerScale) else None
             x_list = _drop_add_residual_stochastic_depth_list(
@@ -596,10 +602,13 @@ class _NestedTensorBlock(_Block):
             )
             return x_list
         else:
-            attn_res = lambda x, attn_bias=None: self.ls1(
-                self.attn(self.norm1(x), attn_bias=attn_bias)
-            )
-            ffn_res = lambda x, attn_bias=None: self.ls2(self.mlp(self.norm2(x)))
+
+            def attn_res(x, attn_bias=None):
+                return self.ls1(self.attn(self.norm1(x), attn_bias=attn_bias))
+
+            def ffn_res(x, attn_bias=None):
+                return self.ls2(self.mlp(self.norm2(x)))
+
             attn_bias, x = _get_attn_bias_and_cat(x_list)
             x = x + attn_res(x, attn_bias=attn_bias)
             x = x + ffn_res(x)
@@ -715,7 +724,9 @@ class _DinoVisionTransformer(nn.Module):
         elif ffn_layer in ("swiglufused", "swiglu"):
             ffn_cls = _SwiGLUFFNFused
         elif ffn_layer == "identity":
-            ffn_cls = lambda *a, **kw: nn.Identity()
+
+            def ffn_cls(*a, **kw):
+                return nn.Identity()
         else:
             raise NotImplementedError(ffn_layer)
 
@@ -1959,11 +1970,6 @@ class _MoGeModelV2(nn.Module):
             )
 
         features = self.neck(features)
-
-        points = getattr(self, "points_head", None)
-        normal = getattr(self, "normal_head", None)
-        mask = getattr(self, "mask_head", None)
-        scale = getattr(self, "scale_head", None)
 
         points = (
             self.points_head(features)[-1] if hasattr(self, "points_head") else None

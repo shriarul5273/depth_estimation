@@ -217,8 +217,7 @@ def process_video(
     src_fps = fps or stream.fps
     total = stream.total_frames
 
-    # Determine output frame size from first frame
-    first_frame_rgb = None
+    # Output writer is lazily initialised once the first frame's size is known.
     out_writer = None
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")

@@ -529,7 +529,9 @@ class DinoVisionTransformer(nn.Module):
         elif ffn_layer in ("swiglufused", "swiglu"):
             ffn_layer_cls = SwiGLUFFNFused
         elif ffn_layer == "identity":
-            ffn_layer_cls = lambda **kw: nn.Identity()
+
+            def ffn_layer_cls(**kw):
+                return nn.Identity()
         else:
             raise NotImplementedError
 

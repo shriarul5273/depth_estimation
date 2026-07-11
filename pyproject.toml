@@ -64,3 +64,9 @@ where = ["src"]
 markers = [
     "slow: heavy or network-dependent tests, excluded by default (run with -m slow)",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Model submodules are imported for their self-registration side effect
+# (they call MODEL_REGISTRY.register(...) at import time) — not because
+# their names are used directly here.
+"src/depth_estimation/__init__.py" = ["F401"]
