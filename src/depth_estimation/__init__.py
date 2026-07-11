@@ -148,4 +148,11 @@ __all__ = [
     "viz",
 ]
 
-__version__ = "0.0.9"
+try:
+    from importlib.metadata import PackageNotFoundError, version
+
+    __version__ = version("depth_estimation")
+except PackageNotFoundError:
+    # Package not installed (e.g. running from a source checkout without
+    # `pip install -e .`) — no metadata to read the version from.
+    __version__ = "0.0.0+unknown"
