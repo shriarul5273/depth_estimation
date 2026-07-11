@@ -155,7 +155,10 @@ class NYUDepthV2Dataset(BaseDepthDataset):
         return image, depth.astype(np.float32)
 
     def __del__(self) -> None:
-        if self._h5 is not None:
+        # getattr guard: __init__ may raise before self._h5 is assigned
+        # (e.g. missing dataset file), in which case __del__ still runs
+        # during garbage collection.
+        if getattr(self, "_h5", None) is not None:
             try:
                 self._h5.close()
             except Exception:

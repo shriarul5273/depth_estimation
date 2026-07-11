@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from ...modeling_utils import BaseDepthModel, _auto_detect_device
+from ...modeling_utils import BaseDepthModel
 from .configuration_marigold_dc import MarigoldDCConfig
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class MarigoldDCModel(BaseDepthModel):
             )
         from diffusers import MarigoldDepthPipeline, DDIMScheduler
 
-        device = torch.device(_auto_detect_device())
+        device = self.device
         dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
 
         pipe = MarigoldDepthPipeline.from_pretrained(
@@ -299,6 +299,7 @@ class MarigoldDCModel(BaseDepthModel):
         """Load Marigold-DC model."""
         config = MarigoldDCConfig()
         model = cls(config)
+        model = model.to(device)
         model._ensure_pipe()
 
         logger.info(f"Loaded Marigold-DC from {config.hub_model_id}")
