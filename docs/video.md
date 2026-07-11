@@ -58,7 +58,7 @@ Standard keys (`model_type`, `backbone`, `device`, `latency_seconds`, `input_res
 
 | Source | Example | Description |
 |---|---|---|
-| Video file | `"video.mp4"` | Any format OpenCV can read: `.mp4`, `.avi`, `.mov`, `.mkv`, `.webm`, `.m4v` |
+| Video file | `"video.mp4"` | Any format OpenCV can read: `.mp4`, `.avi`, `.mov`, `.mkv`, `.webm`, `.m4v`, `.flv`, `.wmv` |
 | Webcam | `0` | Integer device index (0 = default camera) |
 | Frame glob | `"frames/*.png"` | Must contain `*` or `?`; files are sorted alphabetically |
 
