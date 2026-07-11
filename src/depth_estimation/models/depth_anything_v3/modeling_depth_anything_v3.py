@@ -426,7 +426,11 @@ class PositionGetter:
         if (height, width) not in self.position_cache:
             y_coords = torch.arange(height, device=device)
             x_coords = torch.arange(width, device=device)
-            positions = torch.cartesian_prod(y_coords, x_coords)
+            # Equivalent to torch.cartesian_prod(y_coords, x_coords) for two
+            # 1D inputs, but onnx-exportable (cartesian_prod isn't).
+            positions = torch.stack(
+                torch.meshgrid(y_coords, x_coords, indexing="ij"), dim=-1
+            ).reshape(-1, 2)
             self.position_cache[height, width] = positions
         cached_positions = self.position_cache[height, width]
         return (
