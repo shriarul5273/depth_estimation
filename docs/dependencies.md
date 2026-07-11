@@ -28,6 +28,7 @@ These are installed automatically with `pip install depth-estimation`
 | Extra | Install command | Required for |
 |---|---|---|
 | `dev` | `pip install "depth-estimation[dev]"` | Running tests |
+| `export` | `pip install "depth-estimation[export]"` | [ONNX export](export.md) — `onnx` is a genuine requirement for `torch.onnx.export`, not bundled with torch |
 
 ## Development Dependencies
 
@@ -35,6 +36,8 @@ These are installed automatically with `pip install depth-estimation`
 |---|---|
 | pytest | `>=7.0` |
 | pytest-cov | (latest) |
+| onnx | `>=1.14` |
+| onnxruntime | (latest) — needed for `export_onnx(..., verify=True)` |
 
 Install with:
 

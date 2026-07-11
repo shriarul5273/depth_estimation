@@ -257,6 +257,25 @@ See [docs/data.md](https://github.com/shriarul5273/depth_estimation/blob/main/do
 
 </details>
 
+<details>
+<summary><b>ONNX Export</b> — deploy outside PyTorch</summary>
+
+```python
+from depth_estimation import AutoDepthModel, export_onnx
+
+model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
+export_onnx(model, "depth_anything_v2_vitb.onnx", input_size=518, verify=True)
+```
+
+```bash
+# CLI
+depth-estimate export --model depth-anything-v2-vitb --output model.onnx --verify
+```
+
+Verified working for `depth-anything-v2`, `depth-anything-v3`, and `depth-pro`. Requires the optional `onnx` package: `pip install "depth-estimation[export]"`. See [docs/export.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/export.md) for supported models and known limitations.
+
+</details>
+
 ---
 
 ## Adding a New Model
