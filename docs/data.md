@@ -89,7 +89,7 @@ Indoor RGB-D dataset captured with a Microsoft Kinect. The labeled set contains 
 - `nyu_depth_v2_labeled.mat` — all 1 449 labeled samples (~2.8 GB)
 - `splits.mat` — official Eigen train/test split (795 train / 654 test)
 
-**Requires:** `h5py` — `pip install "depth-estimation[data]"`
+**Requires:** `h5py` (already a core dependency — installed automatically)
 
 ```python
 load_dataset("nyu_depth_v2", split="test")
@@ -234,18 +234,10 @@ Transforms must accept and return `(pixel_values, depth_map, valid_mask)` tuples
 
 ## Installation
 
-Core dataset functionality (folder, KITTI, DIODE) requires only `Pillow` and `numpy`, which are already core dependencies.
-
-NYU Depth V2 additionally requires `h5py`:
+All dataset loaders, including NYU Depth V2's `h5py` dependency, work out of the box with:
 
 ```bash
-pip install "depth-estimation[data]"
+pip install depth-estimation
 ```
 
-Or install manually:
-
-```bash
-pip install h5py tqdm
-```
-
-The `tqdm` package is optional — download progress falls back to a plain `print` when it is not installed.
+`h5py` and `tqdm` are core dependencies — no extra install step or optional extra needed. (`tqdm` is used for download progress bars; if it were ever missing, downloads fall back to a plain `print`.)
