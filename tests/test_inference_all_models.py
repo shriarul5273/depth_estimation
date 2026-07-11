@@ -81,20 +81,12 @@ class TestFastOffline:
 
 @pytest.mark.slow
 class TestSlowOffline:
-    """Random-weight, no-download, but architecturally heavy models.
+    """Random-weight, no-download, but architecturally heavy models."""
 
-    DepthPro lazily builds its network on ``_auto_detect_device()`` inside
-    ``forward()``, ignoring the device the pipeline was constructed with —
-    on a CUDA machine it tries (and can fail, OOM) to allocate ~1B params
-    of random weights on the GPU regardless of ``device="cpu"``. Pinned to
-    CPU here via monkeypatch so the test is deterministic and doesn't OOM
-    shared GPUs.
-    """
-
-    def test_depth_pro(self, monkeypatch):
-        import depth_estimation.models.depth_pro.modeling_depth_pro as mod
-
-        monkeypatch.setattr(mod, "_auto_detect_device", lambda: "cpu")
+    def test_depth_pro(self):
+        # DepthPro lazily builds ~1B params of random weights on first
+        # forward() — device="cpu" below (via BaseDepthModel.device) keeps
+        # this deterministic and off a shared GPU.
         config = DepthProConfig()
         model = DepthProModel(config)
         _assert_valid_output(_run_pipeline(config, model))
