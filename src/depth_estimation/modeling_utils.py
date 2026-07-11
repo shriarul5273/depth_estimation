@@ -262,6 +262,33 @@ class BaseDepthModel(nn.Module):
             f"Unfroze top {k} backbone blocks. Trainable params: {self._count_trainable():,}"
         )
 
+    def export_onnx(
+        self,
+        output_path: str,
+        input_size: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Export this model to ONNX. See :func:`depth_estimation.export.export_onnx`
+        for the full parameter list (``opset_version``, ``dynamic_spatial``,
+        ``verify``, etc.).
+
+        Args:
+            output_path: Destination ``.onnx`` file path.
+            input_size: Spatial size (H=W) for the dummy trace input.
+                Defaults to ``self.config.input_size`` if not given.
+            **kwargs: Forwarded to :func:`depth_estimation.export.export_onnx`.
+
+        Example::
+
+            model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
+            model.export_onnx("model.onnx", verify=True)
+        """
+        from .export import export_onnx as _export_onnx
+
+        if input_size is None:
+            input_size = getattr(self.config, "input_size", 518)
+        return _export_onnx(self, output_path, input_size=input_size, **kwargs)
+
 
 def _auto_detect_device() -> str:
     """Auto-detect the best available device."""

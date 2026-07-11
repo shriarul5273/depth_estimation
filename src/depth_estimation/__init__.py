@@ -118,6 +118,12 @@ def __getattr__(name):
 
         globals()["viz"] = viz
         return viz
+    # ONNX export
+    if name == "export_onnx":
+        from .export import export_onnx
+
+        globals()["export_onnx"] = export_onnx
+        return export_onnx
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -146,6 +152,8 @@ __all__ = [
     "process_video",
     # Visualization
     "viz",
+    # ONNX export
+    "export_onnx",
 ]
 
 try:

@@ -746,7 +746,10 @@ class _DepthProNet(nn.Module):
         canonical_inverse_depth, fov_deg = self.forward(x)
 
         if f_px is None:
-            f_px = 0.5 * W / torch.tan(0.5 * torch.deg2rad(fov_deg.to(torch.float)))
+            # deg2rad(x) == x * (pi / 180); written explicitly since
+            # torch.deg2rad isn't onnx-exportable.
+            fov_rad = fov_deg.to(torch.float) * (math.pi / 180.0)
+            f_px = 0.5 * W / torch.tan(0.5 * fov_rad)
 
         inverse_depth = canonical_inverse_depth * (W / f_px)
         f_px = f_px.squeeze()

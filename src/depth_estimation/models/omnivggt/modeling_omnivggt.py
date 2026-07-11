@@ -380,7 +380,11 @@ class PositionGetter:
         if (height, width) not in self.position_cache:
             y = torch.arange(height, device=device)
             x = torch.arange(width, device=device)
-            self.position_cache[height, width] = torch.cartesian_prod(y, x)
+            # Equivalent to torch.cartesian_prod(y, x) for two 1D inputs, but
+            # onnx-exportable (cartesian_prod isn't).
+            self.position_cache[height, width] = torch.stack(
+                torch.meshgrid(y, x, indexing="ij"), dim=-1
+            ).reshape(-1, 2)
         cached = self.position_cache[height, width]
         return cached.view(1, height * width, 2).expand(batch_size, -1, -1).clone()
 
