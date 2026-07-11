@@ -22,7 +22,7 @@ import torch.nn.functional as F
 from timm.layers import resample_abs_pos_embed
 from torch.utils.checkpoint import checkpoint
 
-from ...modeling_utils import BaseDepthModel, _auto_detect_device
+from ...modeling_utils import BaseDepthModel
 from .configuration_depth_pro import DepthProConfig
 
 logger = logging.getLogger(__name__)
@@ -812,8 +812,7 @@ class DepthProModel(BaseDepthModel):
     def _ensure_net(self):
         if self._net is not None:
             return
-        device = torch.device(_auto_detect_device())
-        self._net = _build_depth_pro_net(self.config, device)
+        self._net = _build_depth_pro_net(self.config, self.device)
 
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
         """Run forward pass.

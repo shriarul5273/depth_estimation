@@ -37,6 +37,18 @@ class BaseDepthModel(nn.Module):
     def __init__(self, config: BaseDepthConfig):
         super().__init__()
         self.config = config
+        # Zero-size buffer purely to track the device `.to()` last moved this
+        # module to. Needed by subclasses (e.g. DepthPro, PixelPerfectDepth)
+        # that lazily build their network on first forward() — at construction
+        # time there are no parameters yet for `.to(device)` to act on, so
+        # without this the lazy build has no way to know what device it
+        # should target and would otherwise have to guess.
+        self.register_buffer("_device_tracker", torch.empty(0), persistent=False)
+
+    @property
+    def device(self) -> torch.device:
+        """The device this module was last moved to via `.to(device)`."""
+        return self._device_tracker.device
 
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
         """Run the forward pass.
