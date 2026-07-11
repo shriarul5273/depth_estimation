@@ -17,6 +17,16 @@ Known limitations:
       produces materially different output than the PyTorch model. Do
       not export these families for production use; ``verify=True``
       will catch this (it'll raise on the numerical mismatch).
+    - Models using ``F.scaled_dot_product_attention`` in their attention
+      blocks (``depth-anything-v3-*``, ``pixel-perfect-depth``, ``moge``,
+      ``vggt``, ``omnivggt``) require a torch version whose ONNX exporter
+      has a symbolic mapping for that op — added in a later torch release
+      than this package's declared floor (``torch>=2.0``). Exporting with
+      ``torch==2.0.1`` raises
+      ``torch.onnx.errors.UnsupportedOperatorError: ... 'aten::scaled_dot_product_attention' ...``
+      regardless of ``opset_version``. Upgrade torch if you hit this.
+      ``depth-anything-v2`` and ``depth-pro`` are unaffected (they use an
+      older manual-attention implementation).
 """
 
 import inspect
