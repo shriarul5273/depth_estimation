@@ -1,6 +1,7 @@
 # depth_estimation
 
 <p align="center">
+    <a href="https://github.com/shriarul5273/depth_estimation/actions/workflows/test.yml"><img alt="CI" src="https://github.com/shriarul5273/depth_estimation/actions/workflows/test.yml/badge.svg"></a>
     <a href="https://github.com/shriarul5273/depth_estimation/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/shriarul5273/depth_estimation?color=blue"></a>
     <a href="https://pypi.org/project/depth-estimation/"><img alt="PyPI" src="https://img.shields.io/pypi/v/depth-estimation"></a>
     <a href="https://pypi.org/project/depth-estimation/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/depth-estimation"></a>

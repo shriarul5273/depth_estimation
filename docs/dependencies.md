@@ -7,7 +7,7 @@ These are installed automatically with `pip install depth-estimation`
 | Package | Version Constraint | Notes |
 |---|---|---|
 | Python | `>=3.10` | 3.10 – 3.12 supported |
-| torch | `==2.10.0` | Pinned release |
+| torch | `>=2.0` | Not hard-pinned — installs alongside your existing torch (GPU or CPU) instead of forcing a specific version. See [issue #1](https://github.com/shriarul5273/depth_estimation/issues/1). |
 | torchvision | `>=0.15` | |
 | Pillow | `>=9.0` | |
 | NumPy | `>=1.24` | |
@@ -20,12 +20,13 @@ These are installed automatically with `pip install depth-estimation`
 | timm | `>=0.9.1` | |
 | einops | `>=0.6` | |
 | addict | (any) | |
+| h5py | (any) | Required for NYU Depth V2 — already a core dependency, no extra needed |
+| tqdm | (any) | Download progress bars |
 
 ## Extras
 
 | Extra | Install command | Required for |
 |---|---|---|
-| `data` | `pip install "depth-estimation[data]"` | NYU Depth V2 (h5py) |
 | `dev` | `pip install "depth-estimation[dev]"` | Running tests |
 
 ## Development Dependencies
