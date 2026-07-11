@@ -7,12 +7,8 @@ Fine-tune any supported model on your own depth data with a few lines of Python.
 ## Quick Start
 
 ```python
-from depth_estimation import (
-    DepthAnythingV2Model,
-    DepthTrainer,
-    DepthTrainingArguments,
-    load_dataset,
-)
+from depth_estimation import DepthTrainer, DepthTrainingArguments, load_dataset
+from depth_estimation.models.depth_anything_v2 import DepthAnythingV2Model
 from depth_estimation.data.transforms import get_train_transforms, get_val_transforms
 
 # Load model in training mode

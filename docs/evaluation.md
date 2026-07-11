@@ -91,11 +91,12 @@ compare(
     models: list[str],
     dataset: str | BaseDepthDataset,
     num_samples: int = None,
+    print_table: bool = True,
     ...same remaining args as evaluate()...
 ) -> dict[str, dict]
 ```
 
-Evaluates each model in `models` on the same dataset and prints a formatted comparison table. Returns `{model_id: metrics_dict}`.
+Evaluates each model in `models` on the same dataset. `print_table` controls whether the formatted comparison table below is printed (set `False` to compute results silently). Returns `{model_id: metrics_dict}`.
 
 ```python
 from depth_estimation.evaluation import compare
@@ -199,10 +200,11 @@ p = profile_latency(
     num_warmup=10,
     num_runs=100,
     device="cuda",
+    half=False,   # cast model + input to FP16 before timing
 )
 ```
 
-Returns `mean_ms`, `std_ms`, `min_ms`, `max_ms`, `p50_ms`, `p95_ms`, `p99_ms`, `fps`, `memory_mb`, `device`, `input_shape`.
+Returns `mean_ms`, `std_ms`, `min_ms`, `max_ms`, `p50_ms`, `p95_ms`, `p99_ms`, `fps`, `memory_mb`, `model_id`, `device`, `input_shape`.
 
 ---
 

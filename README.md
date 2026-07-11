@@ -225,7 +225,8 @@ See [docs/evaluation.md](https://github.com/shriarul5273/depth_estimation/blob/m
 <summary><b>Fine-Tuning</b> — any trainable model, any depth dataset</summary>
 
 ```python
-from depth_estimation import DepthAnythingV2Model, DepthTrainer, DepthTrainingArguments, load_dataset
+from depth_estimation import DepthTrainer, DepthTrainingArguments, load_dataset
+from depth_estimation.models.depth_anything_v2 import DepthAnythingV2Model
 from depth_estimation.data.transforms import get_train_transforms, get_val_transforms
 
 model    = DepthAnythingV2Model.from_pretrained("depth-anything-v2-vits", for_training=True)
