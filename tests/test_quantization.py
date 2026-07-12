@@ -71,6 +71,35 @@ class TestQuantizeModel:
         quantize_model(model, dtype="int8")
         assert next(model.parameters()).dtype == original_dtype
 
+    def test_int8_result_always_on_cpu(self, model):
+        qmodel = quantize_model(model, dtype="int8")
+        assert next(qmodel.parameters()).device == torch.device("cpu")
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires a GPU")
+    def test_int8_from_cuda_model_works_and_leaves_original_on_cuda(self, model):
+        """Regression test: torch's dynamic quantization only has CPU
+        kernels for the quantized linear op it produces. Quantizing a
+        CUDA-resident model directly used to either crash immediately
+        (NotImplementedError: 'quantized::linear_dynamic' ... 'CUDA'
+        backend) or, if "fixed" by naively calling model.to("cpu") in
+        quantize_model() itself (an earlier, wrong version of this fix),
+        silently move the CALLER's original model to CPU as a side
+        effect too — nn.Module.to() mutates and returns self. Confirmed
+        both failure modes by hand before landing the deepcopy-based fix
+        below. Only runs where a GPU is actually available (CI is
+        CPU-only), so this won't execute there — verified locally.
+        """
+        cuda_model = model.to("cuda")
+        qmodel = quantize_model(cuda_model, dtype="int8")
+
+        assert next(cuda_model.parameters()).device.type == "cuda"
+
+        dummy = torch.randn(1, 3, 518, 518)
+        with torch.no_grad():
+            out = qmodel(dummy)
+        assert out.shape == (1, 518, 518)
+        assert not torch.isnan(out).any()
+
     def test_int16_raises_with_helpful_message(self, model):
         with pytest.raises(ValueError, match="not supported by PyTorch"):
             quantize_model(model, dtype="int16")
@@ -82,6 +111,20 @@ class TestQuantizeModel:
     def test_unknown_dtype_raises(self, model):
         with pytest.raises(ValueError, match="Unknown dtype"):
             quantize_model(model, dtype="not_a_real_dtype")
+
+    def test_int8_result_cannot_export_to_onnx(self, model, tmp_path):
+        """Documented, confirmed incompatibility: torch's ONNX exporter has
+        no symbolic mapping for the quantized::linear_dynamic op that
+        quantize_model(dtype="int8") produces, at any opset. The correct
+        path for a quantized ONNX file is always export first, then
+        quantize_onnx() — never quantize_model(dtype="int8") then export.
+        """
+        pytest.importorskip("onnx")
+        from depth_estimation.export import export_onnx
+
+        qmodel = quantize_model(model, dtype="int8")
+        with pytest.raises(Exception, match="quantized::linear_dynamic"):
+            export_onnx(qmodel, tmp_path / "should_not_work.onnx", input_size=518)
 
 
 class TestQuantizeOnnx:

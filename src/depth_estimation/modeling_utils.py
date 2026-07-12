@@ -323,11 +323,14 @@ class BaseDepthModel(nn.Module):
         Returns:
             For ``"float16"``/``"bfloat16"``: ``self``, mutated in-place
             and returned for chaining.
-            For ``"int8"``: a **new** model — unlike :meth:`prune` and
+            For ``"int8"``: a **new** model, always on CPU regardless of
+            what device ``self`` is on — unlike :meth:`prune` and
             :meth:`export_onnx`, this does *not* return ``self``, since
             dynamic quantization replaces ``nn.Linear`` instances rather
-            than mutating them. Don't chain further calls on this
-            method's return value assuming it's the same object.
+            than mutating them, and torch's dynamic quantization only has
+            CPU kernels. Don't chain further calls on this method's
+            return value assuming it's the same object or the same
+            device.
 
         Example::
 

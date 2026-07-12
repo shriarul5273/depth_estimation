@@ -39,11 +39,13 @@ quantize_model(model: nn.Module, dtype: str = "float16") -> nn.Module
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `model` | `nn.Module` | **required** | Any model. |
-| `dtype` | `str` | `"float16"` | `"float16"` or `"bfloat16"` — a simple precision cast, every parameter/buffer affected, structure unchanged. Intended for GPU inference (float16 on CPU is slow/partially unsupported for many ops in vanilla PyTorch). Or `"int8"` — dynamic quantization of `nn.Linear` layers only, via `torch.quantization.quantize_dynamic`; intended for CPU inference, no calibration data needed. |
+| `dtype` | `str` | `"float16"` | `"float16"` or `"bfloat16"` — a simple precision cast, every parameter/buffer affected, structure unchanged. Intended for GPU inference (float16 on CPU is slow/partially unsupported for many ops in vanilla PyTorch). Or `"int8"` — dynamic quantization of `nn.Linear` layers only, via `torch.quantization.quantize_dynamic`. **Always runs on CPU**, regardless of what device the model is on — see below. |
 
 **Return value depends on `dtype`** — this is the one thing to watch:
-- `"float16"`/`"bfloat16"`: returns `model`, mutated in-place.
-- `"int8"`: returns a **new** model (verified: `result is model` → `False`, though `type(result) is type(model)` holds). The original `model` argument is left unmodified — dynamic quantization replaces `nn.Linear` instances with quantized equivalents rather than mutating them. Don't chain further calls assuming it's the same object.
+- `"float16"`/`"bfloat16"`: returns `model`, mutated in-place, on whatever device it was already on.
+- `"int8"`: returns a **new** model, always on CPU (verified: `result is model` → `False`, though `type(result) is type(model)` holds). The original `model` argument is left completely unmodified, including its device even if it was on GPU. Don't chain further calls assuming it's the same object or the same device.
+
+**`"int8"` always runs on CPU, even if you call it on a GPU-resident model** — confirmed the hard way: `torch.quantization.quantize_dynamic`'s output only has CPU kernels for the quantized linear op it produces. Calling it on a CUDA model raises `NotImplementedError: Could not run 'quantized::linear_dynamic' with arguments from the 'CUDA' backend`, and — this part is easy to miss — simply moving the *already-quantized* result to CPU afterward doesn't fix it either (`apply_dynamic is not implemented for this packed parameter type`). `quantize_model()`/`model.quantize()` handle this for you: they deep-copy the model, move the copy to CPU, then quantize — so you never hit this, and your original GPU-resident model is untouched.
 
 Also available as `model.quantize(dtype=...)` (`BaseDepthModel.quantize()`), with the same return-value caveat.
 

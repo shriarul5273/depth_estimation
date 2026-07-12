@@ -1,16 +1,26 @@
 """Precision reduction / quantization for depth estimation models.
 
-Two independent paths, depending on what you're targeting:
+Two independent paths, depending on what you're targeting — **do not mix
+them**: ``quantize_model(dtype="int8")``'s output cannot be exported to
+ONNX at all (see below), so if you want a quantized ONNX file, always
+export first, then quantize with :func:`quantize_onnx`.
 
 - :func:`quantize_model` — in-process PyTorch precision casting/quantization.
   ``"float16"``/``"bfloat16"`` are simple dtype casts (GPU inference
   speedup, halves memory, no accuracy-recovery step needed). ``"int8"``
   uses torch's dynamic quantization of ``nn.Linear`` layers only (CPU
-  inference speedup, no calibration data needed).
+  inference speedup, no calibration data needed) — for **direct PyTorch
+  inference only**. Confirmed: ``export_onnx()`` on an int8-quantized
+  model raises ``UnsupportedOperatorError: Exporting the operator
+  'quantized::linear_dynamic' to ONNX opset version 17 is not
+  supported`` — torch's ONNX exporter has no symbolic mapping for that
+  op at all, regardless of opset.
 - :func:`quantize_onnx` — post-export quantization via ONNX Runtime,
   operating on an already-exported ``.onnx`` file (see
   :mod:`depth_estimation.export`). Broader op coverage than PyTorch's own
-  dynamic quantization (covers ``Conv2d``, not just ``Linear``).
+  dynamic quantization (covers ``Conv2d``, not just ``Linear``). **This
+  is the correct path if you want a quantized ONNX file** — export the
+  unquantized model first, then quantize the resulting ``.onnx``.
 
 Known limitations (verified, not guessed):
     - ``quantize_model(dtype="int8")`` uses ``torch.quantization.quantize_dynamic``,
@@ -43,6 +53,7 @@ Known limitations (verified, not guessed):
       default for CPU execution regardless.
 """
 
+import copy
 import logging
 from pathlib import Path
 from typing import Union
@@ -70,16 +81,26 @@ def quantize_model(model: nn.Module, dtype: str = "float16") -> nn.Module:
             Intended for GPU inference (float16 on CPU is slow/partially
             unsupported in vanilla PyTorch for many ops). Or ``"int8"`` —
             dynamic quantization of ``nn.Linear`` layers only, via
-            ``torch.quantization.quantize_dynamic``; intended for CPU
-            inference, no calibration data needed.
+            ``torch.quantization.quantize_dynamic``. **Always runs on
+            CPU**, regardless of what device ``model`` is on — torch's
+            dynamic quantization only has CPU kernels for the quantized
+            op it produces (confirmed: quantizing a CUDA-resident model
+            directly raises ``NotImplementedError: Could not run
+            'quantized::linear_dynamic' with arguments from the 'CUDA'
+            backend``, and moving the *already-quantized* result to CPU
+            afterward doesn't recover it either). No calibration data
+            needed.
 
     Returns:
         For ``"float16"``/``"bfloat16"``: ``model``, mutated in-place and
         returned for chaining.
-        For ``"int8"``: a **new** model — the original ``model`` argument
-        is left unmodified, since dynamic quantization replaces
-        ``nn.Linear`` instances with quantized equivalents rather than
-        mutating them.
+        For ``"int8"``: a **new** model, always on CPU — the original
+        ``model`` argument is left completely unmodified (including its
+        device, even if it was on GPU), since this deep-copies before
+        moving to CPU and quantizing rather than mutating ``model``
+        in-place. **Not exportable to ONNX** — see this module's
+        docstring; use :func:`quantize_onnx` instead if you need a
+        quantized ``.onnx`` file.
 
     Raises:
         ValueError: For ``"int16"``/``"uint16"`` (not supported by
@@ -91,8 +112,21 @@ def quantize_model(model: nn.Module, dtype: str = "float16") -> nn.Module:
         return model.to(_CAST_DTYPES[dtype])
 
     if dtype == "int8":
+        # torch's dynamic quantization only has CPU kernels for the
+        # quantized linear op it produces (confirmed: quantizing a
+        # CUDA-resident model raises "Could not run 'quantized::
+        # linear_dynamic' with arguments from the 'CUDA' backend", and
+        # simply moving the *quantized* model to CPU afterward doesn't
+        # recover it either — "apply_dynamic is not implemented for this
+        # packed parameter type"). The model must be on CPU *before*
+        # quantizing. Deep-copy first rather than model.to("cpu") directly
+        # — nn.Module.to() mutates and returns self, which would silently
+        # move the caller's original (possibly GPU-resident) model to CPU
+        # as a side effect, contradicting "the original model argument is
+        # left unmodified" below.
+        cpu_model = copy.deepcopy(model).to("cpu")
         return torch.quantization.quantize_dynamic(
-            model, {nn.Linear}, dtype=torch.qint8
+            cpu_model, {nn.Linear}, dtype=torch.qint8
         )
 
     if dtype in ("int16", "uint16"):
