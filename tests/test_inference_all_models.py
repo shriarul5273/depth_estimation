@@ -109,7 +109,24 @@ class TestPretrainedVariants:
     def test_variant_inference(self, variant_id):
         from depth_estimation import pipeline
 
-        pipe = pipeline("depth-estimation", model=variant_id, device="cpu")
+        try:
+            pipe = pipeline("depth-estimation", model=variant_id, device="cpu")
+        except Exception as e:
+            # vggt-commercial's repo is gated on Hugging Face (confirmed:
+            # raises huggingface_hub.errors.GatedRepoError, a 401) —
+            # downloading it requires a logged-in huggingface-hub session
+            # that has already accepted the repo's license, which this CI
+            # runner doesn't have configured. Not a code bug — see
+            # docs/models.md's footnote on this variant. Skip rather than
+            # fail so this one credential-gated variant doesn't mask a real
+            # regression in the other 27.
+            if "gated" in str(e).lower() or "GatedRepoError" in type(e).__name__:
+                pytest.skip(
+                    f"{variant_id} is a gated Hugging Face repo — requires "
+                    f"authenticated access with the repo's license accepted, "
+                    f"not configured in this environment: {e}"
+                )
+            raise
         result = pipe(_random_image())
         assert isinstance(result, DepthOutput)
         assert result.depth.ndim == 2
