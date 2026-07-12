@@ -54,6 +54,7 @@ dev = [
     "pytest-cov",
     "onnx>=1.14",
     "onnxruntime",
+    "mypy>=1.10",
 ]
 export = [
     "onnx>=1.14",
@@ -75,3 +76,12 @@ markers = [
 # (they call MODEL_REGISTRY.register(...) at import time) — not because
 # their names are used directly here.
 "src/depth_estimation/__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# The codebase currently has ~290 pre-existing type errors (mostly missing
+# annotations in older modules, not real bugs — verified by spot-checking
+# several by hand). Fixing all of them is a separate, large effort; CI runs
+# mypy in advisory (non-blocking) mode for now — see .github/workflows/test.yml.
+# New code should still aim to be clean under this config.
