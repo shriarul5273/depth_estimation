@@ -98,7 +98,9 @@
 | Variant ID | Backbone | Source | Inference | CLI | Trainable |
 |---|---|---|:---:|:---:|:---:|
 | `vggt` | ViT-L | `facebook/VGGT-1B` | ✅ | ✅ | ✅ |
-| `vggt-commercial` | ViT-L | `facebook/VGGT-1B-Commercial` | ✅ | ✅ | ✅ |
+| `vggt-commercial` | ViT-L | `facebook/VGGT-1B-Commercial` | ✅⁴ | ✅⁴ | ✅⁴ |
+
+⁴ Gated on Hugging Face — downloading requires a logged-in `huggingface-hub` session that has accepted the repo's license at its Hugging Face page (set `HF_TOKEN`, or run `huggingface-cli login`). Without this, loading raises `GatedRepoError` (401 Unauthorized). Confirmed: this is the only variant of the 28 that fails in this package's own scheduled slow-test CI run, precisely because that runner has no such login configured.
 
 ---
 
