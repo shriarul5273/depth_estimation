@@ -100,6 +100,39 @@ class TestExportOnnxFast:
         result = sess.run(None, {"pixel_values": batch})[0]
         assert result.shape[0] == 3
 
+    def test_dynamic_spatial_broken_at_nonsquare_shape(self, tmp_path):
+        """Regression test locking in a real, confirmed finding: on
+        DINOv2-backed models, dynamic_spatial=True does NOT error at
+        export time, but the position-embedding-interpolation branch
+        (``if npatch == N and w == h: return pos_embed``) gets resolved
+        once against the square trace-time dummy input and baked in as a
+        constant, regardless of dynamic_axes. Feeding the exported graph
+        any other (non-square) shape then raises a broadcast shape error
+        deep in the graph (confirmed: "Attempting to broadcast an axis by
+        a dimension other than 1. 1370 by 1407") — not a clean
+        "dynamic_spatial unsupported" message, and PyTorch itself handles
+        the same non-square input just fine (this isn't a real model
+        limitation, only an export one).
+        """
+        torch.manual_seed(0)
+        config = DepthAnythingV2Config(backbone="vits")
+        model = DepthAnythingV2Model(config).eval()
+        out = tmp_path / "model.onnx"
+        export_onnx(model, out, input_size=518, dynamic_spatial=True, dynamic_batch=False)
+
+        # A non-square shape, still patch-size-aligned (14), different
+        # from the square 518x518 the graph was traced with.
+        nonsquare_input = torch.randn(1, 3, 518, 532)
+
+        with torch.no_grad():
+            model(nonsquare_input)  # PyTorch itself: no problem.
+
+        sess = onnxruntime.InferenceSession(
+            str(out), providers=["CPUExecutionProvider"]
+        )
+        with pytest.raises(Exception, match="[Bb]roadcast"):
+            sess.run(None, {"pixel_values": nonsquare_input.numpy()})
+
     def test_static_batch_rejects_other_sizes(self, tmp_path):
         torch.manual_seed(0)
         config = DepthAnythingV2Config(backbone="vits")

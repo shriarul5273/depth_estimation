@@ -43,25 +43,40 @@ from depth_estimation.models.pixel_perfect_depth.modeling_ppd import (
 )
 
 WIDTH, HEIGHT = 224, 224
+# Deliberately non-square — every model in this suite used to only ever be
+# exercised with a square image (WIDTH == HEIGHT above), which is exactly
+# why the MiDaS dpt-large/dpt-hybrid non-square crash and the
+# dynamic_spatial silent-wrong-output bug (both confirmed against real
+# non-square photos, not synthetic ones) went uncaught for so long. This
+# doesn't need real weights or network, so it belongs in the fast tier —
+# it catches preprocessing/shape-handling bugs generically, even though it
+# can't catch model-weight-dependent issues like quantization accuracy.
+NONSQUARE_WIDTH, NONSQUARE_HEIGHT = 336, 224
 
 
 def _random_image():
     return np.random.randint(0, 255, (HEIGHT, WIDTH, 3), dtype=np.uint8)
 
 
-def _assert_valid_output(result):
+def _random_nonsquare_image():
+    return np.random.randint(
+        0, 255, (NONSQUARE_HEIGHT, NONSQUARE_WIDTH, 3), dtype=np.uint8
+    )
+
+
+def _assert_valid_output(result, height=HEIGHT, width=WIDTH):
     assert isinstance(result, DepthOutput)
-    assert result.depth.shape == (HEIGHT, WIDTH)
-    assert result.colored_depth.shape == (HEIGHT, WIDTH, 3)
+    assert result.depth.shape == (height, width)
+    assert result.colored_depth.shape == (height, width, 3)
     assert not np.isnan(result.depth).any()
     assert result.depth.min() >= 0.0
     assert result.depth.max() <= 1.0
 
 
-def _run_pipeline(config, model):
+def _run_pipeline(config, model, image=None):
     processor = DepthProcessor.from_config(config)
     pipe = DepthPipeline(model=model, processor=processor, device="cpu")
-    return pipe(_random_image())
+    return pipe(image if image is not None else _random_image())
 
 
 class TestFastOffline:
@@ -77,6 +92,19 @@ class TestFastOffline:
         config = DepthAnythingV3Config(backbone="small")
         model = DepthAnythingV3Model(config)
         _assert_valid_output(_run_pipeline(config, model))
+
+    @pytest.mark.parametrize("backbone", ["vits", "vitb", "vitl"])
+    def test_depth_anything_v2_nonsquare_image(self, backbone):
+        config = DepthAnythingV2Config(backbone=backbone)
+        model = DepthAnythingV2Model(config)
+        result = _run_pipeline(config, model, image=_random_nonsquare_image())
+        _assert_valid_output(result, height=NONSQUARE_HEIGHT, width=NONSQUARE_WIDTH)
+
+    def test_depth_anything_v3_small_nonsquare_image(self):
+        config = DepthAnythingV3Config(backbone="small")
+        model = DepthAnythingV3Model(config)
+        result = _run_pipeline(config, model, image=_random_nonsquare_image())
+        _assert_valid_output(result, height=NONSQUARE_HEIGHT, width=NONSQUARE_WIDTH)
 
 
 @pytest.mark.slow
