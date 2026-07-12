@@ -273,7 +273,7 @@ export_onnx(model, "depth_anything_v2_vitb.onnx", input_size=518, verify=True)
 depth-estimate export --model depth-anything-v2-vitb --output model.onnx --verify
 ```
 
-Verified working for `depth-anything-v2`, `depth-anything-v3`, and `depth-pro`. Requires the optional `onnx` package: `pip install "depth-estimation[export]"`. See [docs/export.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/export.md) for supported models and known limitations.
+Verified working for `depth-anything-v1/v2/v3`, `depth-pro`, and `moge`. `zoedepth` and `marigold-dc` are **not exportable** (both wrap an opaque external pipeline) — `export_onnx()` raises a clear error immediately rather than a doomed attempt. Requires the optional `onnx` package: `pip install "depth-estimation[export]"`. GPU inference on the exported file works too via `onnxruntime-gpu`. See [docs/export.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/export.md) for the full supported-models table, known limitations, and GPU setup.
 
 </details>
 
@@ -304,10 +304,10 @@ model = AutoDepthModel.from_pretrained("depth-anything-v2-vitb")
 model.quantize(dtype="float16")   # in-place GPU precision cast
 
 model.export_onnx("model.onnx")
-quantize_onnx("model.onnx", "model_uint8.onnx", verify=True)  # default weight_type="uint8"
+quantize_onnx("model.onnx", "model_uint8.onnx")  # default weight_type="uint8", verify=True
 ```
 
-See [docs/quantization.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/quantization.md) — including which formats are actually verified working (`int16`/`uint16` are **not**, despite being accepted by the underlying APIs, and `int8` needs `onnxruntime>=1.26.0` for models with `Conv2d` layers).
+`verify` defaults to `True` — quantization accuracy is **model-dependent, not reliably safe**: testing across the 28 registered variants found `uint8` produces badly wrong output for several real pretrained checkpoints, not just an edge case. See [docs/quantization.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/quantization.md) — including which formats are actually verified working (`int16`/`uint16` are **not**, despite being accepted by the underlying APIs, and `int8` needs `onnxruntime>=1.26.0` for models with `Conv2d` layers).
 
 </details>
 

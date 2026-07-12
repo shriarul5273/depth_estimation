@@ -74,6 +74,8 @@ quantize_onnx(
 
 File size reduction is consistent (~3.5-4×) even where accuracy isn't — e.g. `depth-anything-v2-vits` went from 99.0 MB to 27.1 MB. Size reduction alone doesn't tell you whether the quantized model is usable; always check `verify`.
 
+Quantized `.onnx` files run under `CUDAExecutionProvider` too, not just CPU — confirmed working end-to-end on a real GPU. See [GPU ONNX Inference](export.md#gpu-onnx-inference-onnxruntime-gpu) in the export docs.
+
 ## Known Limitations
 
 ### `quantize_onnx(weight_type="uint8")` accuracy is model-dependent, not reliably safe
