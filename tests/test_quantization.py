@@ -175,9 +175,14 @@ class TestQuantizeOnnx:
         assert out.exists()
 
     def test_int8_actually_shrinks_file(self, onnx_path, tmp_path):
+        # verify=False: this test only checks file size, not accuracy —
+        # int8's Conv2d support (ConvInteger) is version-gated (see
+        # test_int8_quantizes_and_verifies) and verify now defaults to
+        # True, which would otherwise fail this on older onnxruntime for
+        # a reason unrelated to what this test actually checks.
         pytest.importorskip("onnxruntime")
         out = tmp_path / "quant_int8.onnx"
-        quantize_onnx(onnx_path, out, weight_type="int8")
+        quantize_onnx(onnx_path, out, weight_type="int8", verify=False)
         assert out.stat().st_size < onnx_path.stat().st_size
 
     def test_int16_verify_raises_known_limitation(self, onnx_path, tmp_path):
