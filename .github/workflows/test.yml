@@ -27,7 +27,7 @@ jobs:
     name: lint (ruff)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.0
 
       - name: Set up Python
         uses: actions/setup-python@v6.1.0
@@ -45,7 +45,7 @@ jobs:
     name: typecheck (mypy, advisory)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.0
 
       - name: Set up Python
         uses: actions/setup-python@v6.1.0
@@ -68,7 +68,7 @@ jobs:
     name: build (smoke test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.0
 
       - name: Set up Python
         uses: actions/setup-python@v6.1.0
@@ -102,7 +102,7 @@ jobs:
             torch-version: "2.0.1"
 
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6.1.0
