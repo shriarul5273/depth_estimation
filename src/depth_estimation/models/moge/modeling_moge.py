@@ -41,6 +41,21 @@ from .configuration_moge import MoGeConfig
 
 logger = logging.getLogger(__name__)
 
+
+def _round_to_int(x) -> int:
+    """round() that also works when x is a Tensor (confirmed: under ONNX
+    tracing, ``img_w / img_h`` here can come out as a 0-d Tensor rather
+    than a plain float — Python's builtin round() then raises TypeError:
+    type Tensor doesn't define __round__ method, since torch.Tensor has
+    no __round__. Static export is the only supported mode anyway (see
+    export_onnx()'s dynamic_spatial caveat), so collapsing to a concrete
+    Python int here is safe.
+    """
+    if torch.is_tensor(x):
+        return int(torch.round(x).item())
+    return round(x)
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # §1  Minimal utils3d shim (replaces the utils3d package)
 # ═════════════════════════════════════════════════════════════════════════════
@@ -801,7 +816,11 @@ class _DinoVisionTransformer(nn.Module):
         patch_pos_embed = nn.functional.interpolate(
             patch_pos_embed.reshape(1, M, M, dim).permute(0, 3, 1, 2),
             mode="bicubic",
-            antialias=self.interpolate_antialias,
+            # aten::_upsample_bicubic2d_aa has no ONNX symbolic mapping at
+            # opset 17 (confirmed) — disable antialiasing under
+            # onnx_compatible_mode, same as every other antialias call in
+            # this file.
+            antialias=self.interpolate_antialias and not self.onnx_compatible_mode,
             **kwargs,
         )
         assert (h0, w0) == patch_pos_embed.shape[-2:]
@@ -1746,12 +1765,28 @@ class _MoGeModelV1(nn.Module):
             raise ValueError(f"Invalid remap_output: {self.remap_output}")
         return points
 
+    @property
+    def onnx_compatible_mode(self):
+        return getattr(self, "_onnx_compatible_mode", False)
+
+    @onnx_compatible_mode.setter
+    def onnx_compatible_mode(self, value):
+        self._onnx_compatible_mode = value
+
     def forward(self, image, num_tokens):
         oh, ow = image.shape[-2:]
         resize_factor = ((num_tokens * 196) / (oh * ow)) ** 0.5
         rh, rw = int(oh * resize_factor), int(ow * resize_factor)
+        # antialias=True bicubic upsampling is aten::_upsample_bicubic2d_aa,
+        # unsupported at ONNX opset 17 (confirmed: UnsupportedOperatorError).
+        # Disable it under onnx_compatible_mode — slightly different output
+        # (no anti-aliasing), but exportable.
         image = F.interpolate(
-            image, (rh, rw), mode="bicubic", align_corners=False, antialias=True
+            image,
+            (rh, rw),
+            mode="bicubic",
+            align_corners=False,
+            antialias=not self.onnx_compatible_mode,
         )
         image = (image - self.image_mean) / self.image_std
         image_14 = F.interpolate(
@@ -1759,7 +1794,7 @@ class _MoGeModelV1(nn.Module):
             (rh // 14 * 14, rw // 14 * 14),
             mode="bilinear",
             align_corners=False,
-            antialias=True,
+            antialias=not self.onnx_compatible_mode,
         )
         features = self.backbone.get_intermediate_layers(
             image_14, self.intermediate_layers, return_class_token=True
@@ -1802,7 +1837,12 @@ class _MoGeModelV1(nn.Module):
         with torch.autocast(
             device_type=self.device.type,
             dtype=torch.float16,
-            enabled=use_fp16 and self.dtype != torch.float16,
+            # Tracing under autocast can bake mixed fp16/fp32 dtypes into
+            # the exported graph inconsistently (confirmed: onnxruntime
+            # then refuses to load it — "Type parameter (T) of Optype
+            # (ConvTranspose) bound to different types"). Disable under
+            # onnx_compatible_mode.
+            enabled=use_fp16 and self.dtype != torch.float16 and not self.onnx_compatible_mode,
         ):
             output = self.forward(image, num_tokens)
         points, mask = output["points"], output["mask"]
@@ -1946,8 +1986,8 @@ class _MoGeModelV2(nn.Module):
         B, _, img_h, img_w = image.shape
         dtype, device = image.dtype, image.device
         aspect_ratio = img_w / img_h
-        base_h = round((num_tokens / aspect_ratio) ** 0.5)
-        base_w = round((num_tokens * aspect_ratio) ** 0.5)
+        base_h = _round_to_int((num_tokens / aspect_ratio) ** 0.5)
+        base_w = _round_to_int((num_tokens * aspect_ratio) ** 0.5)
 
         features, cls_token = self.encoder(
             image, base_h, base_w, return_class_token=True
@@ -2033,7 +2073,12 @@ class _MoGeModelV2(nn.Module):
         with torch.autocast(
             device_type=self.device.type,
             dtype=torch.float16,
-            enabled=use_fp16 and self.dtype != torch.float16,
+            # Tracing under autocast can bake mixed fp16/fp32 dtypes into
+            # the exported graph inconsistently (confirmed: onnxruntime
+            # then refuses to load it — "Type parameter (T) of Optype
+            # (ConvTranspose) bound to different types"). Disable under
+            # onnx_compatible_mode.
+            enabled=use_fp16 and self.dtype != torch.float16 and not self.onnx_compatible_mode,
         ):
             output = self.forward(image, num_tokens=num_tokens)
 
@@ -2072,7 +2117,10 @@ class _MoGeModelV2(nn.Module):
 
                 depth = points[..., 2] + shift[..., None, None]
                 if mask_binary is not None:
-                    mask_binary &= depth > 0
+                    # In-place &= is aten::__iand_, unsupported at ONNX
+                    # opset 17 (confirmed). Out-of-place & is identical
+                    # semantically and exports fine.
+                    mask_binary = mask_binary & (depth > 0)
             else:
                 depth = None
 
@@ -2117,6 +2165,14 @@ class MoGeModel(BaseDepthModel):
     def __init__(self, config: MoGeConfig):
         super().__init__(config)
         self._net = None  # set by _load_pretrained_weights
+
+    @property
+    def onnx_compatible_mode(self):
+        return getattr(self._net, "onnx_compatible_mode", False)
+
+    @onnx_compatible_mode.setter
+    def onnx_compatible_mode(self, value):
+        self._net.onnx_compatible_mode = value
 
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
         """Run depth estimation.

@@ -167,6 +167,72 @@ class TestExportOnnxFast:
         with pytest.raises(AssertionError):
             _verify_onnx_export(different_model, out, dummy_input=dummy)
 
+    def test_onnx_exportable_false_blocks_export_immediately(self, tmp_path):
+        """Regression test: BaseDepthModel._onnx_exportable = False (set by
+        ZoeDepth and Marigold-DC, both of which wrap an opaque external
+        pipeline and round-trip through PIL/numpy inside forward() —
+        confirmed neither is meaningfully traceable) must raise
+        immediately, before attempting any trace, rather than surfacing a
+        confusing crash deep inside a third-party library or wasting time
+        on a doomed export attempt.
+        """
+        from depth_estimation.modeling_utils import BaseDepthModel
+        from depth_estimation.configuration_utils import BaseDepthConfig
+
+        class _NotExportable(BaseDepthModel):
+            _onnx_exportable = False
+
+            def forward(self, pixel_values):
+                return pixel_values.mean(dim=1)
+
+        model = _NotExportable(BaseDepthConfig()).eval()
+        with pytest.raises(NotImplementedError, match="not traceable"):
+            export_onnx(model, tmp_path / "should_not_exist.onnx", input_size=64)
+        assert not (tmp_path / "should_not_exist.onnx").exists()
+
+    def test_verify_restores_tf32_setting(self, tmp_path):
+        """Regression test: _verify_onnx_export() disables cuDNN TF32
+        for its comparison forward pass (confirmed: on a real
+        pretrained+pruned GPU model, TF32 alone pushed max diff to ~0.19,
+        vs ~8e-5 with it off — dwarfing the default 1e-3 tolerance and
+        having nothing to do with actual export fidelity). It must
+        restore the caller's original setting afterward rather than
+        leaving it globally disabled as a side effect.
+        """
+        torch.manual_seed(0)
+        config = DepthAnythingV2Config(backbone="vits")
+        model = DepthAnythingV2Model(config).eval()
+        out = tmp_path / "model.onnx"
+
+        for original in (True, False):
+            torch.backends.cudnn.allow_tf32 = original
+            export_onnx(model, out, input_size=518, verify=True)
+            assert torch.backends.cudnn.allow_tf32 is original
+
+    def test_zero_input_graph_detected(self, tmp_path):
+        """Regression test: a model that consumes pixel_values only via a
+        non-traceable conversion (e.g. .numpy(), disconnecting it from the
+        graph before any traced op uses it — confirmed for marigold-dc)
+        produces an ONNX graph with zero declared inputs: a static replay
+        of one memorized output regardless of what image it's given.
+        export_onnx() must catch this with a clear error rather than
+        silently writing a useless file, or letting callers discover it
+        via a confusing IndexError out of onnxruntime.
+        """
+        from depth_estimation.modeling_utils import BaseDepthModel
+        from depth_estimation.configuration_utils import BaseDepthConfig
+
+        class _DisconnectedInput(BaseDepthModel):
+            def forward(self, pixel_values):
+                # Round-trips through numpy, same disconnection pattern as
+                # marigold-dc/zoedepth's PIL conversion.
+                arr = pixel_values.detach().cpu().numpy()
+                return torch.from_numpy(arr).mean(dim=1)
+
+        model = _DisconnectedInput(BaseDepthConfig()).eval()
+        with pytest.raises(RuntimeError, match="zero declared inputs"):
+            export_onnx(model, tmp_path / "should_not_exist.onnx", input_size=64)
+
 
 @pytest.mark.slow
 class TestExportOnnxSlowOffline:
@@ -204,3 +270,100 @@ class TestExportOnnxSlowOffline:
         dummy = torch.randn(1, 3, 128, 128)
         with pytest.raises(AssertionError):
             _verify_onnx_export(model, out, dummy_input=dummy)
+
+
+@pytest.mark.slow
+class TestExportOnnxRealPretrained:
+    """Requires real pretrained weights from the Hugging Face Hub (network
+    required) — same tier as TestPretrainedVariants in
+    test_inference_all_models.py.
+    """
+
+    def test_zoedepth_blocked_immediately(self, tmp_path):
+        """Regression test: ZoeDepthModel wraps an opaque HF
+        transformers.Pipeline and round-trips through PIL inside
+        forward() — confirmed it crashes mid-trace on a real bug in
+        transformers' image processor that only manifests under tracing
+        (np.round() on a traced value returns a Tensor, and the processor
+        calls .astype() on it — works fine in normal eager inference).
+        _onnx_exportable = False must block this immediately instead.
+        """
+        from depth_estimation import AutoDepthModel
+
+        model = AutoDepthModel.from_pretrained("zoedepth", device="cpu")
+        with pytest.raises(NotImplementedError, match="not traceable"):
+            export_onnx(model, tmp_path / "should_not_exist.onnx", input_size=384)
+
+    def test_marigold_dc_blocked_immediately(self, tmp_path):
+        """Regression test: MarigoldDCModel wraps a diffusers pipeline and
+        round-trips through PIL/numpy inside forward(). _onnx_exportable
+        = False must block this immediately rather than running the full
+        (expensive) diffusion sampling process only to then discover the
+        resulting graph has zero declared inputs.
+        """
+        from depth_estimation import AutoDepthModel
+
+        model = AutoDepthModel.from_pretrained("marigold-dc", device="cpu")
+        with pytest.raises(NotImplementedError, match="not traceable"):
+            export_onnx(model, tmp_path / "should_not_exist.onnx", input_size=768)
+
+    def test_marigold_dc_pipeline_components_frozen(self):
+        """Regression test: diffusers loads pipeline components with
+        requires_grad=True by default (ready for fine-tuning) — this
+        wrapper is inference-only and every other model in this package
+        loads frozen. Left on, this crashed ONNX export outright before
+        even reaching the (separately documented) frozen-noise
+        limitation.
+        """
+        from depth_estimation import AutoDepthModel
+
+        model = AutoDepthModel.from_pretrained("marigold-dc", device="cpu")
+        model._ensure_pipe()
+        for name, param in model._pipe.unet.named_parameters():
+            assert not param.requires_grad, f"unet.{name} still requires_grad"
+
+    @pytest.mark.parametrize("model_id", ["moge-v1", "moge-v2-vitb-normal"])
+    def test_moge_exports_and_verifies(self, tmp_path, model_id):
+        """Regression test: moge-v1 used unconditional antialias=True
+        bicubic/bilinear resizing (aten::_upsample_{bicubic,bilinear}2d_aa,
+        unsupported at ONNX opset 17) and moge-v2 called Python's round()
+        on what can be a Tensor under tracing (TypeError: type Tensor
+        doesn't define __round__ method) plus an in-place &= (aten::__iand_,
+        also unsupported) and autocast-induced mixed fp16/fp32 dtypes in
+        the exported graph. export_onnx() now sets the model's
+        onnx_compatible_mode flag (where present) to route around all of
+        these.
+        """
+        from depth_estimation import AutoDepthModel
+
+        model = AutoDepthModel.from_pretrained(model_id, device="cpu")
+        out = tmp_path / "model.onnx"
+        export_onnx(model, out, input_size=518, verify=True)
+        assert out.exists()
+
+    def test_midas_dpt_large_handles_non_square_image(self):
+        """Regression test: dpt-large/dpt-hybrid hardcode a square patch
+        grid internally and crash on DepthProcessor's default
+        aspect-ratio-preserving resize for any non-square real image
+        (confirmed: dpt-large raises a patch-grid reshape error,
+        dpt-hybrid raises "Input image size doesn't match model").
+        MiDaSConfig now defaults keep_aspect_ratio=False for these two
+        variants specifically (beit-large is unaffected and keeps it
+        True).
+        """
+        import numpy as np
+        from depth_estimation import pipeline
+
+        pipe = pipeline("depth-estimation", model="midas-dpt-large", device="cpu")
+        non_square = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        result = pipe(non_square)
+        assert not np.isnan(result.depth).any()
+
+    def test_midas_dpt_hybrid_handles_non_square_image(self):
+        import numpy as np
+        from depth_estimation import pipeline
+
+        pipe = pipeline("depth-estimation", model="midas-dpt-hybrid", device="cpu")
+        non_square = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        result = pipe(non_square)
+        assert not np.isnan(result.depth).any()

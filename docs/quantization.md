@@ -17,7 +17,7 @@ qmodel = quantize_model(model, dtype="int8")  # returns a NEW model, see below
 
 # Post-export ONNX Runtime quantization — broader op coverage (covers Conv2d too)
 model.export_onnx("model.onnx")
-quantize_onnx("model.onnx", "model_uint8.onnx", verify=True)  # default weight_type="uint8"
+quantize_onnx("model.onnx", "model_uint8.onnx")  # default weight_type="uint8", verify=True
 ```
 
 ## Which path should I use?
@@ -26,7 +26,7 @@ quantize_onnx("model.onnx", "model_uint8.onnx", verify=True)  # default weight_t
 |---|---|---|
 | Operates on | A PyTorch model, in-process | An already-exported `.onnx` file |
 | `float16`/`bfloat16` | ✅ Simple dtype cast, every layer | Not applicable — export first at your target precision instead |
-| `int8`/`uint8` | ✅ `nn.Linear` only | `uint8` verified working end-to-end. `int8` on a model with `Conv2d` layers (every model in this package has one, in its patch embedding) requires `onnxruntime>=1.26.0` — older CPU builds (e.g. `1.23.2`, the newest available for Python 3.10 at time of writing) don't implement the `ConvInteger` op it produces. See [Known Limitations](#known-limitations). |
+| `int8`/`uint8` | ✅ `nn.Linear` only | `uint8`'s accuracy is **model-dependent** — good for some checkpoints, badly wrong for others (see [Known Limitations](#known-limitations)); always use `verify=True` (the default). `int8` on a model with `Conv2d` layers (every model in this package has one, in its patch embedding) requires `onnxruntime>=1.26.0` — older CPU builds (e.g. `1.23.2`, the newest available for Python 3.10 at time of writing) don't implement the `ConvInteger` op it produces. |
 | `int16`/`uint16` | ❌ Not supported by PyTorch's quantization at all | ⚠️ Accepted by the API but the resulting model commonly **fails to load** — see [Known Limitations](#known-limitations) |
 | Calibration data needed | No | No (uses dynamic quantization) |
 
@@ -58,7 +58,7 @@ quantize_onnx(
     onnx_path: str | Path,
     output_path: str | Path,
     weight_type: str = "uint8",
-    verify: bool = False,
+    verify: bool = True,
     atol: float = 5e-2,
     rtol: float = 5e-2,
 ) -> Path
@@ -68,13 +68,19 @@ quantize_onnx(
 |---|---|---|---|
 | `onnx_path` | `str` or `Path` | **required** | Path to an existing `.onnx` file — e.g. from [`export_onnx()`](export.md). |
 | `output_path` | `str` or `Path` | **required** | Destination for the quantized `.onnx` file. |
-| `weight_type` | `str` | `"uint8"` | `"uint8"` (default — verified working end-to-end, and ONNX Runtime's own recommended default for CPU execution) or `"int8"` (needs `onnxruntime>=1.26.0` for models with `Conv2d` layers — see [Known Limitations](#known-limitations)). `"int16"`/`"uint16"` accepted but see [Known Limitations](#known-limitations). |
-| `verify` | `bool` | `False` | Load the quantized model in an `onnxruntime.InferenceSession` and run one forward pass, raising if it fails to load/run or if the output diverges from the original beyond `atol`/`rtol`. **Recommended** — this is what actually caught the limitations below, rather than silently shipping a broken file. |
+| `weight_type` | `str` | `"uint8"` | `"uint8"` (default — ONNX Runtime's own recommended default for CPU execution) or `"int8"` (needs `onnxruntime>=1.26.0` for models with `Conv2d` layers — see [Known Limitations](#known-limitations)). `"int16"`/`"uint16"` accepted but see [Known Limitations](#known-limitations). **Accuracy is model-dependent regardless of which you pick** — see below. |
+| `verify` | `bool` | `True` | Load the quantized model in an `onnxruntime.InferenceSession` and run one forward pass, raising if it fails to load/run or if the output diverges from the original beyond `atol`/`rtol`. Defaults to `True` (changed from `False`) after finding `uint8` produces badly wrong output for several real pretrained models — see [Known Limitations](#known-limitations). Only set `False` once you've already confirmed accuracy for your specific model. |
 | `atol`, `rtol` | `float` | `5e-2` | Tolerances for `verify`'s output comparison. Looser than `export_onnx()`'s `verify` (`1e-3`) since quantization is lossy by design. |
 
-Confirmed on `depth-anything-v2-vits`: `int8`/`uint8` quantization reduced the exported ONNX file size from 94.2 MB to 25.6 MB (3.7×).
+File size reduction is consistent (~3.5-4×) even where accuracy isn't — e.g. `depth-anything-v2-vits` went from 99.0 MB to 27.1 MB. Size reduction alone doesn't tell you whether the quantized model is usable; always check `verify`.
 
 ## Known Limitations
+
+### `quantize_onnx(weight_type="uint8")` accuracy is model-dependent, not reliably safe
+
+Testing across all 28 registered model variants (not just one) found that `uint8` dynamic quantization produces badly wrong output for 7 of them — e.g. `depth-anything-v1-vitb`: 100% of output elements outside the default 5% tolerance, with output magnitude nearly doubled versus the unquantized model. Confirmed this is **not** a pruning interaction (reproduces on an unpruned model too) and not a bug in this package's code — naive dynamic quantization (no calibration data) is simply a poor fit for some real weight distributions. `int8` shares the same underlying quantization mechanism and is expected to have the same risk.
+
+This is why `verify` now defaults to `True` — always check accuracy for your specific model rather than assuming `uint8` (or any weight type) is safe based on it having worked for a different model.
 
 ### `quantize_model(dtype="int8")` uses a deprecated PyTorch API
 

@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from PIL import Image
 
@@ -52,6 +53,15 @@ class MarigoldDCModel(BaseDepthModel):
     """
 
     config_class = MarigoldDCConfig
+    # Wraps a diffusers MarigoldDepthPipeline and round-trips through
+    # PIL/numpy inside forward() — confirmed the trace "succeeds" but the
+    # tracer never connects any traced op back to the actual pixel_values
+    # input (it's consumed only via a numpy conversion first), producing an
+    # ONNX graph with zero declared inputs: a static replay of one
+    # memorized output regardless of what image it's given. Distinct from
+    # (and more broken than) the already-documented frozen-random-noise
+    # limitation in export.py's module docstring.
+    _onnx_exportable = False
 
     def __init__(self, config: MarigoldDCConfig):
         super().__init__(config)
@@ -84,6 +94,15 @@ class MarigoldDCModel(BaseDepthModel):
         pipe.scheduler = DDIMScheduler.from_config(
             pipe.scheduler.config, timestep_spacing="trailing"
         )
+        # diffusers loads pipeline components with requires_grad=True by
+        # default (ready for fine-tuning), but this wrapper is inference-only
+        # — every other model in this package loads frozen. Left on, this
+        # also crashes ONNX export outright ("Cannot insert a Tensor that
+        # requires grad as a constant"), before even reaching the
+        # already-documented frozen-noise limitation below.
+        for component in vars(pipe).values():
+            if isinstance(component, nn.Module):
+                component.requires_grad_(False)
         self._pipe = pipe
 
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:

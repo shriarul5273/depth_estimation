@@ -34,6 +34,17 @@ class BaseDepthModel(nn.Module):
 
     config_class: type = BaseDepthConfig
 
+    # Set False by subclasses that wrap an opaque external pipeline (e.g.
+    # ZoeDepth, Marigold-DC both wrap a HuggingFace/diffusers pipeline
+    # object internally and round-trip through PIL/numpy inside forward())
+    # — confirmed these cannot be meaningfully traced to ONNX: ZoeDepth
+    # crashes mid-trace on a real bug in transformers' image processor that
+    # only manifests under tracing; Marigold-DC "succeeds" but produces a
+    # graph with zero declared inputs (see export.py). export_onnx() checks
+    # this upfront and fails fast with a clear message instead of running
+    # a doomed (and possibly expensive) trace attempt.
+    _onnx_exportable: bool = True
+
     def __init__(self, config: BaseDepthConfig):
         super().__init__()
         self.config = config

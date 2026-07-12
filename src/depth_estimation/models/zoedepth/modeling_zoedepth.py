@@ -31,6 +31,14 @@ class ZoeDepthModel(BaseDepthModel):
     """
 
     config_class = ZoeDepthConfig
+    # Wraps an opaque HF transformers.Pipeline and round-trips through PIL
+    # inside forward() — confirmed not traceable to ONNX: crashes mid-trace
+    # on a real bug in transformers' ZoeDepthImageProcessor that only
+    # manifests under torch.onnx.export's tracing context (np.round() on a
+    # traced value returns a Tensor instead of a plain scalar, and the
+    # processor calls .astype() on it — works fine in normal eager
+    # inference, only breaks under tracing).
+    _onnx_exportable = False
 
     def __init__(self, config: ZoeDepthConfig):
         super().__init__(config)
