@@ -103,7 +103,19 @@ def export_onnx(
         device = model.device
     else:
         device = next(model.parameters()).device
-    dummy_input = torch.randn(1, 3, input_size, input_size, device=device)
+    # Match the dummy input's dtype to the model's actual parameter dtype
+    # (e.g. float16 after quantize_model(dtype="float16")) — always tracing
+    # with float32 raised "Input type (float) and bias type (c10::Half)
+    # should be the same" against a half-precision model. Same StopIteration
+    # concern as the device lookup above for lazy-net families with no
+    # parameters yet; float32 is the right fallback there since forward()
+    # hasn't run yet to know any better, and it's what those models are
+    # loaded in by default anyway.
+    try:
+        dtype = next(model.parameters()).dtype
+    except StopIteration:
+        dtype = torch.float32
+    dummy_input = torch.randn(1, 3, input_size, input_size, device=device, dtype=dtype)
 
     # Warm-up: some model families (DepthPro, PixelPerfectDepth) lazily
     # build their network on the *first* forward() call rather than in
