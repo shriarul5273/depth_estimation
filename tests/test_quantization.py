@@ -175,9 +175,14 @@ class TestQuantizeOnnx:
         assert out.exists()
 
     def test_int8_actually_shrinks_file(self, onnx_path, tmp_path):
+        # verify=False: this test only checks file size, not accuracy —
+        # int8's Conv2d support (ConvInteger) is version-gated (see
+        # test_int8_quantizes_and_verifies) and verify now defaults to
+        # True, which would otherwise fail this on older onnxruntime for
+        # a reason unrelated to what this test actually checks.
         pytest.importorskip("onnxruntime")
         out = tmp_path / "quant_int8.onnx"
-        quantize_onnx(onnx_path, out, weight_type="int8")
+        quantize_onnx(onnx_path, out, weight_type="int8", verify=False)
         assert out.stat().st_size < onnx_path.stat().st_size
 
     def test_int16_verify_raises_known_limitation(self, onnx_path, tmp_path):
@@ -193,3 +198,28 @@ class TestQuantizeOnnx:
     def test_unknown_weight_type_raises(self, onnx_path, tmp_path):
         with pytest.raises(ValueError, match="Unknown weight_type"):
             quantize_onnx(onnx_path, tmp_path / "out.onnx", weight_type="fp8")
+
+    def test_verify_defaults_to_true(self, onnx_path, tmp_path):
+        """Regression test: verify used to default to False, meaning
+        quantize_onnx() could silently ship a badly broken quantized file
+        with no error at all. Confirmed real risk, not theoretical:
+        testing across the 28 registered model variants found uint8
+        quantization produces wildly wrong output (100% of elements
+        outside tolerance) for several real pretrained checkpoints.
+        Changed the default to True — this test locks that in by checking
+        the signature's actual default rather than passing verify
+        explicitly, so a regression back to False would be caught.
+        """
+        import inspect
+
+        sig = inspect.signature(quantize_onnx)
+        assert sig.parameters["verify"].default is True
+
+    def test_verify_false_explicitly_skips_check(self, onnx_path, tmp_path):
+        """verify=False must still be honored for callers who've already
+        confirmed accuracy and want to skip the extra forward pass."""
+        pytest.importorskip("onnxruntime")
+        out = tmp_path / "quant_uint8_noverify.onnx"
+        result = quantize_onnx(onnx_path, out, weight_type="uint8", verify=False)
+        assert result == out
+        assert out.exists()

@@ -23,6 +23,17 @@ export first, then quantize with :func:`quantize_onnx`.
   unquantized model first, then quantize the resulting ``.onnx``.
 
 Known limitations (verified, not guessed):
+    - ``quantize_onnx()``'s ``uint8`` accuracy is **model-dependent, not
+      reliably safe across the board**. Testing across the 28 registered
+      variants (not just the one model this was originally checked
+      against) found 7 of them produce badly wrong quantized output —
+      e.g. ``depth-anything-v1-vitb``: 100% of output elements outside
+      the default 5% tolerance, magnitude nearly doubled. Not a pruning
+      interaction (reproduces on an unpruned model too) and not a code
+      bug — naive dynamic quantization (no calibration data) is simply a
+      poor fit for some real weight distributions. This is why
+      ``verify`` now defaults to ``True``: always check accuracy for your
+      specific model rather than assuming ``uint8`` is safe.
     - ``quantize_model(dtype="int8")`` uses ``torch.quantization.quantize_dynamic``,
       which is **deprecated** as of recent torch releases in favor of
       ``torchao``. This package doesn't migrate to ``torchao`` yet, since
@@ -149,7 +160,7 @@ def quantize_onnx(
     onnx_path: Union[str, Path],
     output_path: Union[str, Path],
     weight_type: str = "uint8",
-    verify: bool = False,
+    verify: bool = True,
     atol: float = 5e-2,
     rtol: float = 5e-2,
 ) -> Path:
@@ -160,25 +171,33 @@ def quantize_onnx(
         onnx_path: Path to an existing ``.onnx`` file, e.g. from
             :func:`depth_estimation.export.export_onnx`.
         output_path: Destination for the quantized ``.onnx`` file.
-        weight_type: ``"uint8"`` (default — verified working end-to-end,
-            and ONNX Runtime's own recommended default for CPU execution)
-            or ``"int8"`` — for a model with ``Conv2d`` layers (every
-            model in this package has one, in its patch embedding),
-            ``"int8"`` produces a ``ConvInteger`` op that requires
-            ``onnxruntime>=1.26.0``; older CPU builds (confirmed:
+        weight_type: ``"uint8"`` (default — ONNX Runtime's own recommended
+            default for CPU execution, and the only weight type broadly
+            supported at all) or ``"int8"`` — for a model with ``Conv2d``
+            layers (every model in this package has one, in its patch
+            embedding), ``"int8"`` produces a ``ConvInteger`` op that
+            requires ``onnxruntime>=1.26.0``; older CPU builds (confirmed:
             ``1.23.2``, the newest available for Python 3.10 at time of
             writing) raise ``NOT_IMPLEMENTED``. ``"int16"``/``"uint16"``
             are accepted but commonly fail to *load* afterward in ONNX
             Runtime's CPU execution provider regardless of version — see
-            this module's docstring. Use ``verify=True`` to catch any of
-            this rather than silently producing a broken file.
-        verify: If True, load the quantized model in an
+            this module's docstring. **Quantization accuracy is
+            model-dependent, not just weight-type-dependent**: testing
+            across the 28 registered variants found ``uint8`` produces
+            badly wrong output (100% of elements outside tolerance, up to
+            ~2x magnitude error) for several real pretrained checkpoints,
+            not just an edge case — this is why ``verify`` defaults to
+            True.
+        verify: If True (the default — changed from False after the
+            finding above), load the quantized model in an
             ``onnxruntime.InferenceSession`` and run one forward pass
             with random input, raising if it fails to load/run, or if
             the output doesn't loosely match the original ``onnx_path``
             model's output (quantization is lossy by design, so the
             tolerance here is much looser than
             :func:`~depth_estimation.export.export_onnx`'s ``verify``).
+            Set False only if you've already confirmed accuracy for your
+            specific model and want to skip the extra forward pass.
         atol, rtol: Tolerances for ``verify``'s output comparison.
 
     Returns:
@@ -188,6 +207,10 @@ def quantize_onnx(
         ValueError: For an unrecognized ``weight_type``.
         ImportError: If the optional ``onnxruntime`` package isn't
             installed.
+        AssertionError: If ``verify=True`` and the quantized output
+            diverges beyond ``atol``/``rtol`` — this is a real,
+            model-dependent risk (see ``weight_type`` above), not a rare
+            edge case.
     """
     if weight_type not in _ONNX_WEIGHT_TYPES:
         raise ValueError(

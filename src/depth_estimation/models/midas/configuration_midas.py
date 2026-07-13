@@ -40,12 +40,26 @@ class MiDaSConfig(BaseDepthConfig):
         backbone: str = "dpt-large",
         input_size: int = 384,
         patch_size: int = 16,
+        keep_aspect_ratio: "bool | None" = None,
         **kwargs,
     ):
+        # dpt-large/dpt-hybrid (HF Intel/dpt-large, Intel/dpt-hybrid-midas)
+        # hardcode a square patch grid internally — confirmed: DepthProcessor's
+        # default aspect-ratio-preserving resize produces a non-square input
+        # on any non-square real image, and these two crash on it
+        # (dpt-hybrid: "Input image size doesn't match model", dpt-large:
+        # a patch-grid reshape assuming a perfect square). beit-large
+        # (Intel/dpt-beit-large-512) has no such issue — different HF
+        # implementation, interpolated position embeddings handle
+        # non-square inputs fine. Only override the default when the
+        # caller hasn't explicitly set keep_aspect_ratio themselves.
+        if keep_aspect_ratio is None:
+            keep_aspect_ratio = backbone == "beit-large"
         super().__init__(
             backbone=backbone,
             input_size=input_size,
             patch_size=patch_size,
+            keep_aspect_ratio=keep_aspect_ratio,
             **kwargs,
         )
 

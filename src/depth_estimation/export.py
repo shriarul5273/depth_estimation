@@ -9,14 +9,34 @@ Usage::
     export_onnx(model, "depth_anything_v2_vitb.onnx", input_size=518, verify=True)
 
 Known limitations:
-    - Diffusion-based models (``pixel-perfect-depth``, and likely
-      ``marigold-dc``) sample internal random noise inside ``forward()``.
-      Tracing freezes that call's result as a constant in the exported
-      graph, so the ONNX model always reuses the same noise instead of
-      sampling fresh randomness per call — the export "succeeds" but
-      produces materially different output than the PyTorch model. Do
-      not export these families for production use; ``verify=True``
-      will catch this (it'll raise on the numerical mismatch).
+    - ``pixel-perfect-depth`` (diffusion-based) samples internal random
+      noise inside ``forward()``. Tracing freezes that call's result as a
+      constant in the exported graph, so the ONNX model always reuses the
+      same noise instead of sampling fresh randomness per call — the
+      export "succeeds" but produces materially different output than the
+      PyTorch model. Do not export this family for production use;
+      ``verify=True`` will catch it (raises on the numerical mismatch).
+    - ``zoedepth`` and ``marigold-dc`` wrap an opaque external pipeline
+      (HuggingFace ``transformers``/``diffusers``) and round-trip through
+      PIL/numpy inside ``forward()`` — confirmed not traceable at all:
+      ``export_onnx()`` raises ``NotImplementedError`` immediately for
+      these (``BaseDepthModel._onnx_exportable = False``) rather than
+      attempting a doomed trace. ZoeDepth crashes mid-trace on a real bug
+      in ``transformers``' image processor that only manifests under
+      tracing; Marigold-DC's trace "succeeds" but produces a graph with
+      zero declared inputs (a static replay of one memorized output).
+    - ``moge`` (v1 and v2) recovers an optimal focal length/depth shift
+      via a non-differentiable NumPy Gauss-Newton solve inside
+      ``infer()``. That gets frozen as a constant at trace time, same
+      category as the noise-freezing issue above — except it's
+      deterministic, so ``verify=True`` (which reuses the same dummy
+      input for both sides of the comparison) can't catch it the same
+      way: the exported model will not recompute this correction for a
+      *different* real image at deployment time, even though verify
+      passes. Also requires ``moge``'s ``onnx_compatible_mode`` flag
+      (set automatically here) to swap out several ops with no ONNX
+      symbolic mapping at opset 17 (antialiased resize, in-place bitwise
+      ops, autocast-induced mixed fp16/fp32 dtypes).
     - Models using ``F.scaled_dot_product_attention`` in their attention
       blocks (``depth-anything-v3-*``, ``pixel-perfect-depth``, ``moge``,
       ``vggt``, ``omnivggt``) require a torch version whose ONNX exporter
@@ -78,7 +98,21 @@ def export_onnx(
             Many of these architectures have constraints on spatial size
             (multiple-of-patch-size, or an internally fixed resolution like
             DepthPro) — leave this False unless you've confirmed the target
-            model tolerates arbitrary input sizes.
+            model tolerates arbitrary input sizes. **Confirmed unsafe for
+            DINOv2-backed families (depth-anything-v1/v2, moge, and
+            others) even though it doesn't error at export time**: their
+            position-embedding interpolation is skipped via a Python
+            conditional (``if npatch == N and w == h: return pos_embed``)
+            that the tracer resolves once, at trace time, against the
+            square dummy input — baking in "skip interpolation" as a
+            constant regardless of ``dynamic_axes``. The exported graph
+            then only actually works at the exact square shape it was
+            traced with; feeding it any other shape raises a broadcast
+            shape error deep in the graph (e.g. ``right operand cannot
+            broadcast on dim 1``), not a clear "dynamic_spatial
+            unsupported" message. ``verify=True`` with the default square
+            dummy input will not catch this — it only exercises the shape
+            that already works.
         verify: If True, run the same input through both the PyTorch model
             and the exported ONNX graph (via onnxruntime, an optional
             dependency) and assert the outputs match within ``atol``/
@@ -91,10 +125,27 @@ def export_onnx(
     Returns:
         ``output_path``, as a ``Path``.
     """
+    if not getattr(model, "_onnx_exportable", True):
+        raise NotImplementedError(
+            f"{type(model).__name__} wraps an opaque external pipeline "
+            "(HuggingFace transformers/diffusers) and round-trips through "
+            "PIL/numpy inside forward() — confirmed not traceable to ONNX "
+            "(ZoeDepth crashes mid-trace on a transformers bug that only "
+            "manifests under tracing; Marigold-DC 'succeeds' but produces "
+            "a graph with zero declared inputs). Not supported."
+        )
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     model = model.eval()
+    # Opt-in hook: some model families (confirmed: MoGe) expose an
+    # onnx_compatible_mode flag that swaps out ops with no ONNX symbolic
+    # mapping at the current opset (e.g. antialiased bicubic/bilinear
+    # resize — aten::_upsample_{bicubic,bilinear}2d_aa) for an exportable
+    # equivalent. Harmless no-op for every model that doesn't define it.
+    if hasattr(model, "onnx_compatible_mode"):
+        model.onnx_compatible_mode = True
     # Prefer BaseDepthModel.device: some families (DepthPro,
     # PixelPerfectDepth) have no parameters at all until their lazily-built
     # network exists, so next(model.parameters()) raises StopIteration
@@ -157,6 +208,32 @@ def export_onnx(
             **export_kwargs,
         )
 
+    # Some model families (confirmed: marigold-dc) convert pixel_values to
+    # PIL/numpy *inside* forward() before doing anything traceable with it —
+    # the tracer then has no traced op depending on the actual input tensor,
+    # so torch.onnx.export "succeeds" but silently produces a graph with
+    # zero declared inputs: a static replay of one memorized output,
+    # regardless of what's fed to it at inference time. That's a materially
+    # different (and worse) failure than the documented frozen-random-noise
+    # limitation below — it's not merely inaccurate, the exported model is
+    # unusable for any image but the one it happened to trace with. Catch
+    # it here with a clear error rather than letting callers discover it via
+    # a confusing IndexError out of onnxruntime, or silently ship it.
+    import onnx as _onnx
+
+    graph_inputs = _onnx.load(str(output_path)).graph.input
+    if len(graph_inputs) == 0:
+        raise RuntimeError(
+            f"Exported ONNX graph for {type(model).__name__} has zero "
+            "declared inputs — the model likely converts its input tensor "
+            "to PIL/numpy inside forward() before any traceable op uses "
+            "it (confirmed for marigold-dc), so tracing disconnects the "
+            "graph from the actual input entirely. The resulting .onnx "
+            "file would just replay one memorized output regardless of "
+            "what image it's given. This model family is not exportable "
+            "to ONNX with the current tracer-based approach."
+        )
+
     logger.info("Exported ONNX model to %s", output_path)
 
     if verify:
@@ -187,8 +264,21 @@ def _verify_onnx_export(
             "pip install onnxruntime"
         ) from e
 
-    with torch.no_grad():
-        torch_out = model(dummy_input).cpu().numpy()
+    # cuDNN's TF32 mode (default-on for Ampere+ GPUs) trades precision for
+    # speed on conv/matmul — confirmed this alone can push a real
+    # pretrained+pruned model's max output diff to ~0.19 (vs ~8e-5 with it
+    # off), dwarfing the default 1e-3 tolerance and having nothing to do
+    # with actual export fidelity. onnxruntime's CPU execution provider
+    # always computes in full FP32, so compare like-for-like: disable TF32
+    # for this one comparison forward pass, then restore the caller's
+    # setting exactly as it was.
+    prev_tf32 = torch.backends.cudnn.allow_tf32
+    torch.backends.cudnn.allow_tf32 = False
+    try:
+        with torch.no_grad():
+            torch_out = model(dummy_input).cpu().numpy()
+    finally:
+        torch.backends.cudnn.allow_tf32 = prev_tf32
 
     sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
     input_name = sess.get_inputs()[0].name

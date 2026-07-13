@@ -142,3 +142,57 @@ class TestFromConfig:
         processor = DepthProcessor.from_config(config)
         assert processor.input_size == 384
         assert processor.patch_size == 16
+
+
+class TestKeepAspectRatio:
+    """Regression tests: MiDaS dpt-large/dpt-hybrid crash on a non-square
+    real image under the default aspect-ratio-preserving resize (confirmed:
+    dpt-hybrid raises "Input image size doesn't match model", dpt-large
+    raises a patch-grid reshape error) — both hardcode a square patch grid
+    internally. keep_aspect_ratio=False makes the processor resize to an
+    exact square instead, matching what these backbones require.
+    """
+
+    def test_default_preserves_aspect_ratio(self, sample_image_rgb):
+        # sample_image_rgb is (480, 640) — not square.
+        config = BaseDepthConfig(input_size=384, patch_size=14)
+        processor = DepthProcessor.from_config(config)
+        assert processor.keep_aspect_ratio is True
+        pixel_values = processor.preprocess(sample_image_rgb)["pixel_values"]
+        assert pixel_values.shape[2] != pixel_values.shape[3]
+
+    def test_keep_aspect_ratio_false_forces_square(self, sample_image_rgb):
+        config = BaseDepthConfig(input_size=384, patch_size=14, keep_aspect_ratio=False)
+        processor = DepthProcessor.from_config(config)
+        assert processor.keep_aspect_ratio is False
+        pixel_values = processor.preprocess(sample_image_rgb)["pixel_values"]
+        assert pixel_values.shape[2] == pixel_values.shape[3] == 384
+
+    def test_midas_dpt_large_defaults_to_square(self):
+        from depth_estimation.models.midas.configuration_midas import MiDaSConfig
+
+        config = MiDaSConfig(backbone="dpt-large")
+        assert config.keep_aspect_ratio is False
+
+    def test_midas_dpt_hybrid_defaults_to_square(self):
+        from depth_estimation.models.midas.configuration_midas import MiDaSConfig
+
+        config = MiDaSConfig(backbone="dpt-hybrid")
+        assert config.keep_aspect_ratio is False
+
+    def test_midas_beit_large_keeps_aspect_ratio(self):
+        """beit-large has no such issue — different HF implementation,
+        interpolated position embeddings handle non-square inputs fine.
+        """
+        from depth_estimation.models.midas.configuration_midas import MiDaSConfig
+
+        config = MiDaSConfig(backbone="beit-large")
+        assert config.keep_aspect_ratio is True
+
+    def test_midas_dpt_large_processor_produces_square_input(self, sample_image_rgb):
+        from depth_estimation.models.midas.configuration_midas import MiDaSConfig
+
+        config = MiDaSConfig(backbone="dpt-large")
+        processor = DepthProcessor.from_config(config)
+        pixel_values = processor.preprocess(sample_image_rgb)["pixel_values"]
+        assert pixel_values.shape[2] == pixel_values.shape[3] == config.input_size

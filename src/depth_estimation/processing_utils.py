@@ -48,6 +48,11 @@ class DepthProcessor:
         self.patch_size = config.patch_size
         self.mean = config.mean
         self.std = config.std
+        # True (default) for every model confirmed to tolerate arbitrary
+        # aspect ratios. MiDaS's dpt-large/dpt-hybrid variants set this
+        # False — confirmed they crash on a non-square resize (their HF
+        # backbone hardcodes a square patch grid internally).
+        self.keep_aspect_ratio = getattr(config, "keep_aspect_ratio", True)
 
     @classmethod
     def from_config(cls, config: BaseDepthConfig) -> "DepthProcessor":
@@ -219,16 +224,21 @@ class DepthProcessor:
         h, w = image_rgb.shape[:2]
         target = self.input_size
 
-        # Compute scale so shorter side >= target
-        scale = target / min(h, w)
-        new_h = int(h * scale)
-        new_w = int(w * scale)
+        if self.keep_aspect_ratio:
+            # Compute scale so shorter side >= target
+            scale = target / min(h, w)
+            new_h = int(h * scale)
+            new_w = int(w * scale)
 
-        # Ensure dimensions are multiples of patch_size
-        new_h = new_h - (new_h % self.patch_size)
-        new_w = new_w - (new_w % self.patch_size)
-        new_h = max(new_h, self.patch_size)
-        new_w = max(new_w, self.patch_size)
+            # Ensure dimensions are multiples of patch_size
+            new_h = new_h - (new_h % self.patch_size)
+            new_w = new_w - (new_w % self.patch_size)
+            new_h = max(new_h, self.patch_size)
+            new_w = max(new_w, self.patch_size)
+        else:
+            # Fixed square resize, ignoring aspect ratio — required by
+            # backbones that hardcode a square patch grid (see __init__).
+            new_h = new_w = target
 
         resized = cv2.resize(image_rgb, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
 
