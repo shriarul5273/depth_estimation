@@ -1,3 +1,50 @@
+# v0.1.2 — 📦 Export, Optimization & Reliability
+
+This release adds a complete model-optimization path—from pruning through ONNX
+export and post-export quantization—and hardens inference, dataset handling, and
+CI across the supported Python and PyTorch versions.
+
+## ✨ Highlights
+
+- **ONNX export:** export supported models through `export_onnx()`,
+  `BaseDepthModel.export_onnx()`, or `depth-estimate export`, with optional
+  ONNX Runtime verification and dynamic-batch support.
+- **Model pruning:** use `prune_model()`, `compute_sparsity()`, and
+  `make_pruning_permanent()` for unstructured PyTorch pruning workflows.
+- **Quantization:** cast models to `float16`/`bfloat16`, dynamically quantize
+  linear layers to int8, or quantize exported ONNX weights with ONNX Runtime.
+- **Optimization example:** `examples/optimize.py` demonstrates a verified
+  prune → export → quantize workflow.
+
+## 🐛 Fixes and hardening
+
+- Fixed ONNX export for MoGe, froze inference-only Marigold components, and
+  added clear early failures for model families that cannot produce usable graphs.
+- Made ONNX verification reliable on CUDA by disabling TF32 only during the
+  comparison and restoring the caller's setting afterward.
+- Fixed float16 export inputs, CUDA int8 quantization, non-square MiDaS input
+  handling, and GPU-index selection for DepthPro and ZoeDepth.
+- Enabled verification by default for ONNX quantization so materially incorrect
+  quantized outputs are rejected instead of silently shipped.
+- Protected dataset archive extraction against path traversal and loaded
+  externally downloaded checkpoints with `weights_only=True` where applicable.
+- Made gated `vggt-commercial` weights skip cleanly when Hugging Face access has
+  not been granted, without masking failures from other model variants.
+
+## 🧪 Tooling and compatibility
+
+- Added CI coverage across Python 3.10–3.12 and multiple PyTorch versions,
+  together with Ruff, build checks, CodeQL, scheduled slow tests, and Dependabot.
+- Package `__version__` now comes from installed package metadata, preventing
+  source and PyPI version drift.
+- Expanded fast and pretrained-model regression coverage for export, pruning,
+  quantization, CLI behavior, devices, real images, and non-square inputs.
+
+See [export.md](export.md), [pruning.md](pruning.md), and
+[quantization.md](quantization.md) for supported models and current limitations.
+
+---
+
 # v0.1.1 — 🎨 Visualization Toolkit
 
 ## ✨ New: `depth_estimation.viz`
