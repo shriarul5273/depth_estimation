@@ -11,21 +11,41 @@
 
 <h3 align="center">A unified Python library for monocular depth estimation</h3>
 
-<h3 align="center">Inference · Video & Streaming · Visualization · Fine-Tuning · Evaluation · Dataset Loading</h3>
+<h3 align="center">Inference · Video · Training · Evaluation · ONNX Export · Pruning · Quantization</h3>
 
 ---
 
-`depth_estimation` is the model-definition framework for depth estimation. It provides a single, consistent API across **12 model families and 28 variants** — so you can swap models, compare them, and fine-tune them without rewriting your pipeline.
+`depth_estimation` is a unified model framework for monocular depth estimation. It provides one consistent API across **12 model families and 28 variants**, so you can swap models, compare them, fine-tune them, and prepare them for deployment without rewriting your pipeline.
 
-It covers the full workflow end-to-end: run inference with one line, stream depth from video, visualize results, evaluate on standard benchmarks, and fine-tune on custom depth data — all with the same library.
+It covers the workflow end-to-end: run inference with one line, process video, visualize results, evaluate standard benchmarks, fine-tune on custom depth data, optimize models, and export them to ONNX.
+
+> **Latest release: v0.1.3 — Documentation Refresh.** It adds clearer installation paths, a documentation index, updated deployment guidance, and corrected ONNX verification dependencies. Read the [release notes](https://github.com/shriarul5273/depth_estimation/blob/main/docs/release_notes.md) or view the [GitHub release](https://github.com/shriarul5273/depth_estimation/releases/tag/v0.1.3).
 
 ## Installation
 
 ```bash
-pip install depth-estimation
+# Core library
+pip install --upgrade depth-estimation
+
+# ONNX export
+pip install "depth-estimation[export]"
+
+# Export verification and ONNX quantization
+pip install "depth-estimation[export]" onnxruntime
 ```
 
-See [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md) for optional extras (CUDA, MPS, etc.).
+Python 3.10–3.12 is supported. For GPU execution of exported models, replace `onnxruntime` with `onnxruntime-gpu`. See [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md) for the complete dependency guide.
+
+## Documentation
+
+| Goal | Guide |
+|---|---|
+| Choose a model | [Models](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) |
+| Run video or visualize results | [Video](https://github.com/shriarul5273/depth_estimation/blob/main/docs/video.md) · [Visualization](https://github.com/shriarul5273/depth_estimation/blob/main/docs/viz.md) |
+| Load data, evaluate, or fine-tune | [Data](https://github.com/shriarul5273/depth_estimation/blob/main/docs/data.md) · [Evaluation](https://github.com/shriarul5273/depth_estimation/blob/main/docs/evaluation.md) · [Training](https://github.com/shriarul5273/depth_estimation/blob/main/docs/training.md) |
+| Prepare a model for deployment | [ONNX export](https://github.com/shriarul5273/depth_estimation/blob/main/docs/export.md) · [Pruning](https://github.com/shriarul5273/depth_estimation/blob/main/docs/pruning.md) · [Quantization](https://github.com/shriarul5273/depth_estimation/blob/main/docs/quantization.md) |
+| Use the command line | [CLI reference](https://github.com/shriarul5273/depth_estimation/blob/main/docs/cli.md) |
+| Extend the library | [Adding a model](https://github.com/shriarul5273/depth_estimation/blob/main/docs/adding_a_model.md) |
 
 ---
 
@@ -72,13 +92,16 @@ depth-estimate predict image.jpg --model depth-anything-v2-vitb
 Switch from Depth Anything to DepthPro to MoGe by changing a single string. Preprocessing, postprocessing, and output format are identical across all models.
 
 **2. The full depth workflow in one place.**
-Most libraries stop at inference. This one covers training, evaluation on standard benchmarks, and dataset loading — so you don't have to stitch together separate tools.
+Most libraries stop at inference. This one also covers video, training, benchmark evaluation, dataset loading, pruning, quantization, and ONNX export, so you don't have to stitch together separate tools.
 
 **3. Modular, single-file model design.**
 Each model lives in one self-contained file. No hidden abstractions. If you need to understand or modify a model, there's exactly one place to look. New models self-register — `AutoDepthModel` and `pipeline()` resolve them automatically.
 
 **4. Designed for research.**
 Trainable models with backbone freeze schedules, proper batch-level metric accumulation (no mean-of-means), and a `compare()` function that shows a formatted table across models.
+
+**5. Built for reliable deployment.**
+Export verification checks ONNX output against PyTorch, quantization verifies accuracy by default, and unsupported model paths fail early with actionable errors.
 
 ---
 
@@ -273,7 +296,7 @@ export_onnx(model, "depth_anything_v2_vitb.onnx", input_size=518, verify=True)
 depth-estimate export --model depth-anything-v2-vitb --output model.onnx --verify
 ```
 
-Verified working for `depth-anything-v1/v2/v3`, `depth-pro`, and `moge`. `zoedepth` and `marigold-dc` are **not exportable** (both wrap an opaque external pipeline) — `export_onnx()` raises a clear error immediately rather than a doomed attempt. Requires the optional `onnx` package: `pip install "depth-estimation[export]"`. GPU inference on the exported file works too via `onnxruntime-gpu`. See [docs/export.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/export.md) for the full supported-models table, known limitations, and GPU setup.
+Verified working for `depth-anything-v1/v2/v3`, `depth-pro`, and `moge`, with model-specific limitations documented in the compatibility table. `zoedepth` and `marigold-dc` are **not exportable** because both wrap opaque external pipelines; `export_onnx()` fails early with a clear error. Export requires `pip install "depth-estimation[export]"`; using `verify=True` additionally requires `onnxruntime` or `onnxruntime-gpu`. See [docs/export.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/export.md) for the full supported-models table and GPU setup.
 
 </details>
 
@@ -291,6 +314,8 @@ model.export_onnx("pruned.onnx", verify=True)  # pruned models export like any o
 ```
 
 Pure PyTorch (`torch.nn.utils.prune`) — no special hardware or SDK. See [docs/pruning.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/pruning.md) for prune-aware fine-tuning and what pruning does/doesn't buy you (it zeros weights, it doesn't shrink tensors).
+
+For a complete prune → fine-tune → export → quantize workflow, see [`examples/optimize.py`](https://github.com/shriarul5273/depth_estimation/blob/main/examples/optimize.py).
 
 </details>
 

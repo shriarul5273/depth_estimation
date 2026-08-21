@@ -1,3 +1,25 @@
+# v0.1.3 — 📚 Documentation Refresh
+
+This patch release refreshes the package documentation so installation,
+model selection, and deployment workflows are easier to discover and follow.
+There are no runtime API changes in this release.
+
+## ✨ Improvements
+
+- Expanded the README to cover the complete workflow, including video,
+  training, evaluation, ONNX export, pruning, and quantization.
+- Added a documentation index linking directly to the model, data, training,
+  evaluation, CLI, and deployment guides.
+- Split installation instructions into core, ONNX export, and verified
+  export/quantization paths.
+- Corrected the ONNX dependency guidance: export requires the `export` extra,
+  while verification and ONNX quantization also require `onnxruntime` or
+  `onnxruntime-gpu`.
+- Linked the end-to-end optimization example and clarified export compatibility
+  and reliability guarantees.
+
+---
+
 # v0.1.2 — 📦 Export, Optimization & Reliability
 
 This release adds a complete model-optimization path—from pruning through ONNX
