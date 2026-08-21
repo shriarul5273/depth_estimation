@@ -71,6 +71,12 @@ markers = [
     "slow: heavy or network-dependent tests, excluded by default (run with -m slow)",
 ]
 
+[tool.ruff.lint]
+# Keep Ruff's original default rule set explicit. Ruff 0.16 broadened its
+# implicit defaults, which made unchanged code fail CI when the unpinned
+# runner upgraded from 0.15.x.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.ruff.lint.per-file-ignores]
 # Model submodules are imported for their self-registration side effect
 # (they call MODEL_REGISTRY.register(...) at import time) — not because
