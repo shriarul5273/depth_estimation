@@ -22,6 +22,7 @@ from .models import midas
 from .models import depth_pro
 from .models import pixel_perfect_depth
 from .models import marigold_dc
+from .models import marigold_v2
 from .models import moge
 from .models import omnivggt
 from .models import vggt

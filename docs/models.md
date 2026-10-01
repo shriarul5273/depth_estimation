@@ -1,6 +1,6 @@
 # Supported Models
 
-12 model families · 28 variants
+13 model families · 32 variants
 
 **Column key:**
 - **Inference** — `model.predict()` / `pipeline()` / CLI predict
@@ -67,6 +67,25 @@
 
 ² `forward()` runs iterative diffusion sampling — not differentiable for supervised training.
 
+## Marigold V2
+
+Single-step diffusion transformer depth estimation using a Qwen-Image-Edit-2509
+backbone with LoRA adapters. Outputs affine-invariant depth (log-space by default).
+Requires `diffusers>=0.38`, `peft`, `safetensors`, and optionally `bitsandbytes`
+for 4-bit quantization. The Qwen base model (~17 GB) must be accessible as
+`Qwen/Qwen-Image-Edit-2509` on HuggingFace Hub or via a local path set in config.
+
+| Variant ID | Checkpoint | Output | Inference | CLI | Trainable |
+|---|---|---|:---:|:---:|:---:|
+| `marigold-v2` | `depth/Log-base` | affine-invariant log depth | ✅ | ✅ | ❌⁵ |
+| `marigold-v2-log-layered` | `depth/Log-layered` | see-through log depth (glass) | ✅ | ✅ | ❌⁵ |
+| `marigold-v2-uniform` | `depth/Uniform-base` | affine-invariant linear depth | ✅ | ✅ | ❌⁵ |
+| `marigold-v2-disparity` | `depth/Disparity-base` | affine-invariant disparity | ✅ | ✅ | ❌⁵ |
+
+⁵ Wraps a Qwen-Image-Edit diffusion pipeline — fine-tuning requires the full
+`marigoldv2` training framework. Access `model._transformer` (a PeftModel) for
+direct LoRA parameter manipulation.
+
 ## Marigold-DC (Depth Completion)
 
 | Variant ID | Source | Inference | CLI | Trainable |
@@ -117,6 +136,7 @@
 | **MiDaS** | [github.com/isl-org/MiDaS](https://github.com/isl-org/MiDaS) |
 | **Pixel-Perfect Depth** | [github.com/gangweix/Pixel-Perfect-Depth](https://github.com/gangweix/Pixel-Perfect-Depth) |
 | **Marigold-DC** | [github.com/prs-eth/Marigold-DC](https://github.com/prs-eth/Marigold-DC) |
+| **Marigold V2** | [github.com/huawei-bayerlab/marigold-v2](https://github.com/huawei-bayerlab/marigold-v2) |
 | **MoGe** | [github.com/microsoft/MoGe](https://github.com/microsoft/MoGe) |
 | **VGGT** | [github.com/facebookresearch/vggt](https://github.com/facebookresearch/vggt) |
 | **OmniVGGT** | [github.com/Livioni/OmniVGGT](https://github.com/Livioni/OmniVGGT) |
