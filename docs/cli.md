@@ -87,7 +87,7 @@ depth-estimate predict SOURCE --model MODEL [OPTIONS]
 | `npy` | `<name>_depth.npy` — raw float32 depth array, shape `(H, W)` |
 | `both` | Both files above |
 
-For relative depth models the `.npy` values are normalised to `[0, 1]`. For metric models (ZoeDepth, DepthPro, Depth Anything v3 metric) values are in **metres**.
+For relative depth models the `.npy` values are normalised to `[0, 1]`. For metric models (ZoeDepth, DepthPro, Depth Pro 2, Depth Anything v3 metric) values are in **metres**.
 
 Any [matplotlib colormap](https://matplotlib.org/stable/gallery/color/colormap_reference.html) name is accepted for `--colormap`.
 
@@ -137,7 +137,7 @@ depth-anything-v2-vitb                depth-anything-v2         relative  vitb
 zoedepth                              zoedepth                  metric    zoedepth-nyu-kitti
 ...
 
-28 variants across 12 model families.
+36 variants across 14 model families.
 ```
 
 ---

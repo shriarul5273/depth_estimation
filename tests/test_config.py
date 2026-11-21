@@ -24,6 +24,10 @@ from depth_estimation.models.midas.configuration_midas import (
 from depth_estimation.models.depth_pro.configuration_depth_pro import (
     DepthProConfig,
 )
+from depth_estimation.models.depth_pro_2.configuration_depth_pro_2 import (
+    DepthPro2Config,
+    _DEPTHPRO2_VARIANT_MAP,
+)
 from depth_estimation.models.pixel_perfect_depth.configuration_ppd import (
     PixelPerfectDepthConfig,
 )
@@ -197,6 +201,46 @@ class TestDepthProConfig:
     def test_is_metric(self):
         config = DepthProConfig()
         assert config.is_metric is True
+
+
+class TestDepthPro2Config:
+    def test_model_type(self):
+        config = DepthPro2Config()
+        assert config.model_type == "depth-pro-2"
+        assert config.is_metric is True
+
+    @pytest.mark.parametrize(
+        "variant_id,expected_repo,preset",
+        [
+            ("depth-pro-2-s", "apple/DepthPro2-S", "vit_small_patch16_dinov3"),
+            ("depth-pro-2-b", "apple/DepthPro2-B", "vit_base_patch16_dinov3"),
+            ("depth-pro-2-l", "apple/DepthPro2-L", "vit_large_patch16_dinov3.lvd1689m"),
+            ("depth-pro-2-h", "apple/DepthPro2-H", "vit_huge_plus_patch16_dinov3"),
+        ],
+    )
+    def test_from_variant(self, variant_id, expected_repo, preset):
+        config = DepthPro2Config.from_variant(variant_id)
+        assert config.hub_repo_id == expected_repo
+        assert config.backbone_preset == preset
+        assert config.fov_repo_id == "apple/DepthPro2-focal"
+        assert len(config.reassembled_blocks) == 4
+        assert len(config.dims_reassemble) == 4
+
+    def test_variant_count(self):
+        assert len(_DEPTHPRO2_VARIANT_MAP) == 4
+
+    def test_patch_size_is_input_multiple(self):
+        # The network needs inputs that are multiples of 32.
+        assert DepthPro2Config().patch_size == 32
+
+    def test_unknown_variant(self):
+        with pytest.raises(ValueError, match="Unknown Depth Pro 2 variant"):
+            DepthPro2Config.from_variant("depth-pro-2-xl")
+
+    def test_roundtrip(self):
+        config = DepthPro2Config.from_variant("depth-pro-2-l")
+        restored = DepthPro2Config.from_dict(config.to_dict())
+        assert restored == config
 
 
 class TestPixelPerfectDepthConfig:

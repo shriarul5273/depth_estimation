@@ -20,6 +20,7 @@ class TestModelRegistry:
             "zoedepth",
             "midas",
             "depth-pro",
+            "depth-pro-2",
             "pixel-perfect-depth",
             "marigold-dc",
             "moge",
@@ -56,6 +57,11 @@ class TestModelRegistry:
             "midas-beit-large",
             # depth-pro
             "depth-pro",
+            # depth-pro-2 (4 variants)
+            "depth-pro-2-s",
+            "depth-pro-2-b",
+            "depth-pro-2-l",
+            "depth-pro-2-h",
             # ppd
             "pixel-perfect-depth",
             # marigold-dc
@@ -92,6 +98,7 @@ class TestModelRegistry:
         assert MODEL_REGISTRY.resolve_model_type("zoedepth") == "zoedepth"
         assert MODEL_REGISTRY.resolve_model_type("midas-dpt-large") == "midas"
         assert MODEL_REGISTRY.resolve_model_type("depth-pro") == "depth-pro"
+        assert MODEL_REGISTRY.resolve_model_type("depth-pro-2-l") == "depth-pro-2"
         assert (
             MODEL_REGISTRY.resolve_model_type("pixel-perfect-depth")
             == "pixel-perfect-depth"
@@ -119,6 +126,8 @@ class TestAutoDepthModel:
             ("midas-dpt-hybrid", "MiDaSModel"),
             ("midas-beit-large", "MiDaSModel"),
             ("depth-pro", "DepthProModel"),
+            ("depth-pro-2-s", "DepthPro2Model"),
+            ("depth-pro-2-h", "DepthPro2Model"),
             ("pixel-perfect-depth", "PixelPerfectDepthModel"),
             ("marigold-dc", "MarigoldDCModel"),
             ("moge-v1", "MoGeModel"),
@@ -154,6 +163,8 @@ class TestAutoProcessor:
             "midas-dpt-large",
             "midas-beit-large",
             "depth-pro",
+            "depth-pro-2-s",
+            "depth-pro-2-h",
             "pixel-perfect-depth",
             "marigold-dc",
             "moge-v1",

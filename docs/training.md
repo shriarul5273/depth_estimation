@@ -289,6 +289,7 @@ trainer.train()
 | `depth-anything-v3-*` | DINOv2 | `self.net.backbone` | Full fine-tuning supported |
 | `midas-*` | HF DPT encoder | `self.dpt.dpt.encoder` | Supported; custom `unfreeze_top_k` using `encoder.layer` |
 | `depth-pro` | DepthProEncoder | `self._net.encoder` | Supported; custom `unfreeze_top_k` for dual-ViT encoder |
+| `depth-pro-2-*` | DINOv3 multi-view encoder | `self.encoder` | Supported; focal-length estimator runs under `no_grad` and is not fine-tuned |
 | `vggt` | Aggregator (frame + global blocks) | `self._net.aggregator` | Supported; custom `unfreeze_top_k` for `frame_blocks`/`global_blocks` |
 | `omnivggt` | ZeroAggregator (frame + global blocks) | `self._net.aggregator` | Supported; custom `unfreeze_top_k` for `frame_blocks`/`global_blocks` |
 | `moge-*` | — | raises `NotImplementedError` | `forward()` uses non-differentiable focal/shift recovery |
