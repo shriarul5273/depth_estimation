@@ -139,6 +139,18 @@ class TestFastOffline:
         assert single["depth"].shape == (100, 140)
         assert single["focallength_px"].ndim == 0
 
+    def test_depth_pro_2_old_timm_raises_clear_error(self, monkeypatch):
+        # timm < 1.0.20 has no DINOv3 models; create_model raises
+        # RuntimeError("Unknown model ...") there.
+        import timm
+
+        def _unknown(name, **kwargs):
+            raise RuntimeError(f"Unknown model ({name})")
+
+        monkeypatch.setattr(timm, "create_model", _unknown)
+        with pytest.raises(ImportError, match=r"timm>=1\.0\.20"):
+            DepthPro2Model(DepthPro2Config())
+
     def test_depth_pro_2_training_helpers(self):
         import torch
 

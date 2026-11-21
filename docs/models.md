@@ -65,7 +65,7 @@ Sharp, temporally consistent metric depth from a DINOv3 multi-view
 transformer. Every size loads the shared focal-length estimator
 (`apple/DepthPro2-focal`, 23.5M params) to recover metric scale when the
 focal length is unknown. Runs at the processor's resolution (shorter side
-`input_size`, default 768) padded to a multiple of 32. Needs `timm>=1.0.27`
+`input_size`, default 768) padded to a multiple of 32. Needs `timm>=1.0.20`
 for the DINOv3 backbones.
 
 | Variant ID | Backbone | Params | Source | Inference | CLI | Trainable |

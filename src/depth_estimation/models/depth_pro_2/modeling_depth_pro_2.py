@@ -68,7 +68,7 @@ def _create_dinov3(preset: str) -> nn.Module:
     except RuntimeError as e:  # unknown model name in old timm
         raise ImportError(
             f"Depth Pro 2 needs a timm version with DINOv3 models "
-            f"('{preset}'); install timm>=1.0.27."
+            f"('{preset}'); install timm>=1.0.20."
         ) from e
     vit.rope.normalize_coords = "max"
     return vit
