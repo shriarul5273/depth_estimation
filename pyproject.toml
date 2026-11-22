@@ -26,17 +26,22 @@ classifiers = [
 ]
 keywords = ["depth-estimation", "monocular-depth", "computer-vision", "deep-learning", "pytorch", "fine-tuning", "training"]
 dependencies = [
-    "torch>=2.0",
-    "torchvision>=0.15",
+    # 2.6 is the oldest torch that current transformers and diffusers accept
+    # (they disable or fail to import torch below it), so it is the real
+    # floor for ZoeDepth, MiDaS, Marigold-DC and Marigold V2.
+    "torch>=2.6",
+    "torchvision>=0.21",
     "Pillow>=9.0",
     "numpy>=1.24",
     "matplotlib>=3.6",
     "opencv-python>=4.8",
     "huggingface-hub>=0.16",
     "transformers",
-    "diffusers",
+    "diffusers>=0.38",
     "accelerate",
-    "timm>=0.9.1",
+    "peft",
+    "safetensors",
+    "timm>=1.0.20",
     "einops>=0.6",
     "addict",
     "h5py",
@@ -58,6 +63,11 @@ dev = [
 ]
 export = [
     "onnx>=1.14",
+]
+# Optional 4-bit (NF4) loading of Marigold V2's Qwen DiT on CUDA; without it
+# the model falls back to bfloat16. bitsandbytes itself needs torch>=2.4.
+4bit = [
+    "bitsandbytes",
 ]
 
 [project.scripts]

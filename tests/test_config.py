@@ -24,6 +24,10 @@ from depth_estimation.models.midas.configuration_midas import (
 from depth_estimation.models.depth_pro.configuration_depth_pro import (
     DepthProConfig,
 )
+from depth_estimation.models.depth_pro_2.configuration_depth_pro_2 import (
+    DepthPro2Config,
+    _DEPTHPRO2_VARIANT_MAP,
+)
 from depth_estimation.models.pixel_perfect_depth.configuration_ppd import (
     PixelPerfectDepthConfig,
 )
@@ -199,6 +203,46 @@ class TestDepthProConfig:
         assert config.is_metric is True
 
 
+class TestDepthPro2Config:
+    def test_model_type(self):
+        config = DepthPro2Config()
+        assert config.model_type == "depth-pro-2"
+        assert config.is_metric is True
+
+    @pytest.mark.parametrize(
+        "variant_id,expected_repo,preset",
+        [
+            ("depth-pro-2-s", "apple/DepthPro2-S", "vit_small_patch16_dinov3"),
+            ("depth-pro-2-b", "apple/DepthPro2-B", "vit_base_patch16_dinov3"),
+            ("depth-pro-2-l", "apple/DepthPro2-L", "vit_large_patch16_dinov3.lvd1689m"),
+            ("depth-pro-2-h", "apple/DepthPro2-H", "vit_huge_plus_patch16_dinov3"),
+        ],
+    )
+    def test_from_variant(self, variant_id, expected_repo, preset):
+        config = DepthPro2Config.from_variant(variant_id)
+        assert config.hub_repo_id == expected_repo
+        assert config.backbone_preset == preset
+        assert config.fov_repo_id == "apple/DepthPro2-focal"
+        assert len(config.reassembled_blocks) == 4
+        assert len(config.dims_reassemble) == 4
+
+    def test_variant_count(self):
+        assert len(_DEPTHPRO2_VARIANT_MAP) == 4
+
+    def test_patch_size_is_input_multiple(self):
+        # The network needs inputs that are multiples of 32.
+        assert DepthPro2Config().patch_size == 32
+
+    def test_unknown_variant(self):
+        with pytest.raises(ValueError, match="Unknown Depth Pro 2 variant"):
+            DepthPro2Config.from_variant("depth-pro-2-xl")
+
+    def test_roundtrip(self):
+        config = DepthPro2Config.from_variant("depth-pro-2-l")
+        restored = DepthPro2Config.from_dict(config.to_dict())
+        assert restored == config
+
+
 class TestPixelPerfectDepthConfig:
     def test_model_type(self):
         config = PixelPerfectDepthConfig()
@@ -334,3 +378,25 @@ class TestMarigoldDCConfig:
 
         config = MarigoldDCConfig(num_inference_steps=10)
         assert config.num_inference_steps == 10
+
+
+class TestMarigoldV2Config:
+    # Folder names that exist in huawei-bayerlab/marigold-v2-0 (its manifest
+    # has no "depth/Log-base"; the paper model is "depth/Log-stage2").
+    @pytest.mark.parametrize(
+        "variant_id,checkpoint",
+        [
+            ("marigold-v2", "depth/Log-stage2"),
+            ("marigold-v2-log-layered", "depth/Log-layered"),
+            ("marigold-v2-uniform", "depth/Uniform-base"),
+            ("marigold-v2-disparity", "depth/Disparity-base"),
+        ],
+    )
+    def test_checkpoint_folders(self, variant_id, checkpoint):
+        from depth_estimation.models.marigold_v2.configuration_marigold_v2 import (
+            MarigoldV2Config,
+        )
+
+        config = MarigoldV2Config.from_variant(variant_id)
+        assert config.checkpoint == checkpoint
+        assert config.embed_prefix == "qwen_edit_2509_qwen_depth_realimg512"

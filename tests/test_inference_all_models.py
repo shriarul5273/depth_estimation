@@ -35,6 +35,12 @@ from depth_estimation.models.depth_anything_v3.modeling_depth_anything_v3 import
 )
 from depth_estimation.models.depth_pro.configuration_depth_pro import DepthProConfig
 from depth_estimation.models.depth_pro.modeling_depth_pro import DepthProModel
+from depth_estimation.models.depth_pro_2.configuration_depth_pro_2 import (
+    DepthPro2Config,
+)
+from depth_estimation.models.depth_pro_2.modeling_depth_pro_2 import (
+    DepthPro2Model,
+)
 from depth_estimation.models.pixel_perfect_depth.configuration_ppd import (
     PixelPerfectDepthConfig,
 )
@@ -105,6 +111,63 @@ class TestFastOffline:
         model = DepthAnythingV3Model(config)
         result = _run_pipeline(config, model, image=_random_nonsquare_image())
         _assert_valid_output(result, height=NONSQUARE_HEIGHT, width=NONSQUARE_WIDTH)
+
+
+    def test_depth_pro_2_small(self):
+        # ViT-S + the ViT-S focal estimator (~48M params); input_size shrunk
+        # to keep the random-weight forward cheap.
+        config = DepthPro2Config(input_size=128)
+        model = DepthPro2Model(config)
+        _assert_valid_output(_run_pipeline(config, model))
+
+    def test_depth_pro_2_small_nonsquare_image(self):
+        config = DepthPro2Config(input_size=128)
+        model = DepthPro2Model(config)
+        result = _run_pipeline(config, model, image=_random_nonsquare_image())
+        _assert_valid_output(result, height=NONSQUARE_HEIGHT, width=NONSQUARE_WIDTH)
+
+    def test_depth_pro_2_infer_clip_and_padding(self):
+        # 100x140 is not a multiple of 32: infer() must pad and crop back.
+        import torch
+
+        model = DepthPro2Model(DepthPro2Config()).eval()
+        clip = torch.randn(3, 3, 100, 140)
+        out = model.infer(clip, f_px=120.0)
+        assert out["inverse_depth"].shape == (3, 100, 140)
+        assert out["depth"].shape == (3, 100, 140)
+        single = model.infer(clip[0])
+        assert single["depth"].shape == (100, 140)
+        assert single["focallength_px"].ndim == 0
+
+    def test_depth_pro_2_old_timm_raises_clear_error(self, monkeypatch):
+        # timm < 1.0.20 has no DINOv3 models; create_model raises
+        # RuntimeError("Unknown model ...") there.
+        import timm
+
+        def _unknown(name, **kwargs):
+            raise RuntimeError(f"Unknown model ({name})")
+
+        monkeypatch.setattr(timm, "create_model", _unknown)
+        with pytest.raises(ImportError, match=r"timm>=1\.0\.20"):
+            DepthPro2Model(DepthPro2Config())
+
+    def test_depth_pro_2_training_helpers(self):
+        import torch
+
+        model = DepthPro2Model(DepthPro2Config())
+        model.freeze_backbone()
+        assert not any(p.requires_grad for p in model.encoder.parameters())
+        model.unfreeze_top_k_backbone_layers(2)
+        assert all(p.requires_grad for p in model.encoder.blocks[-1].parameters())
+        assert not any(p.requires_grad for p in model.encoder.blocks[0].parameters())
+        groups = model.get_parameter_groups()
+        assert groups[0]["params"] and groups[1]["params"]
+
+        model.train()
+        depth = model(torch.randn(1, 3, 64, 96))
+        assert depth.shape == (1, 64, 96)
+        depth.sum().backward()
+        assert model.head[0].weight.grad is not None
 
 
 @pytest.mark.slow

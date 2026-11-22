@@ -1,6 +1,6 @@
 # Supported Models
 
-13 model families · 32 variants
+14 model families · 36 variants
 
 **Column key:**
 - **Inference** — `model.predict()` / `pipeline()` / CLI predict
@@ -59,6 +59,42 @@
 |---|---|:---:|:---:|:---:|
 | `depth-pro` | `apple/DepthPro` | ✅ | ✅ | ✅ |
 
+## Apple Depth Pro 2 (Metric)
+
+Sharp, temporally consistent metric depth from a DINOv3 multi-view
+transformer. Every size loads the shared focal-length estimator
+(`apple/DepthPro2-focal`, 23.5M params) to recover metric scale when the
+focal length is unknown. Runs at the processor's resolution (shorter side
+`input_size`, default 768) padded to a multiple of 32. The DINOv3 backbones
+come from `timm>=1.0.20`, which the package installs.
+
+| Variant ID | Backbone | Params | Source | Inference | CLI | Trainable |
+|---|---|---|---|:---:|:---:|:---:|
+| `depth-pro-2-s` | ViT-S/16 | 24M | `apple/DepthPro2-S` | ✅ | ✅ | ✅ |
+| `depth-pro-2-b` | ViT-B/16 | 97M | `apple/DepthPro2-B` | ✅ | ✅ | ✅ |
+| `depth-pro-2-l` | ViT-L/16 | 334M | `apple/DepthPro2-L` | ✅ | ✅ | ✅ |
+| `depth-pro-2-h` | ViT-H+/16 | 872M | `apple/DepthPro2-H` | ✅ | ✅ | ✅ |
+
+Weights are released under the Apple AMLR license: **research use only**
+(non-commercial scientific research and academic development).
+
+`forward()` / `pipeline()` set sky (infinite depth) and anything beyond
+`config.max_depth` (default 1000 m) to 0, like MoGe. For raw predictions,
+a known focal length, or video clips whose frames attend to each other,
+call `infer()` directly:
+
+```python
+from depth_estimation import AutoDepthModel, AutoProcessor
+
+model = AutoDepthModel.from_pretrained("depth-pro-2-l")
+processor = AutoProcessor.from_pretrained("depth-pro-2-l")
+x = processor("photo.jpg")["pixel_values"][0]   # (3, H, W)
+out = model.infer(x, f_px=None)                 # or f_px from EXIF
+out["depth"]           # (H, W) metres, inf for sky
+out["focallength_px"]  # estimated focal length in pixels
+# clip = torch.stack(frames)  -> model.infer(clip) gives (T, H, W)
+```
+
 ## Pixel-Perfect Depth
 
 | Variant ID | Source | Inference | CLI | Trainable |
@@ -71,13 +107,14 @@
 
 Single-step diffusion transformer depth estimation using a Qwen-Image-Edit-2509
 backbone with LoRA adapters. Outputs affine-invariant depth (log-space by default).
-Requires `diffusers>=0.38`, `peft`, `safetensors`, and optionally `bitsandbytes`
-for 4-bit quantization. The Qwen base model (~17 GB) must be accessible as
+Its dependencies (`diffusers>=0.38`, `peft`, `safetensors`) are installed with
+the package; for 4-bit quantization on CUDA also install
+`pip install "depth-estimation[4bit]"` (`bitsandbytes`, needs torch>=2.4). The Qwen base model (~17 GB) must be accessible as
 `Qwen/Qwen-Image-Edit-2509` on HuggingFace Hub or via a local path set in config.
 
 | Variant ID | Checkpoint | Output | Inference | CLI | Trainable |
 |---|---|---|:---:|:---:|:---:|
-| `marigold-v2` | `depth/Log-base` | affine-invariant log depth | ✅ | ✅ | ❌⁵ |
+| `marigold-v2` | `depth/Log-stage2` | affine-invariant log depth (paper model) | ✅ | ✅ | ❌⁵ |
 | `marigold-v2-log-layered` | `depth/Log-layered` | see-through log depth (glass) | ✅ | ✅ | ❌⁵ |
 | `marigold-v2-uniform` | `depth/Uniform-base` | affine-invariant linear depth | ✅ | ✅ | ❌⁵ |
 | `marigold-v2-disparity` | `depth/Disparity-base` | affine-invariant disparity | ✅ | ✅ | ❌⁵ |
@@ -132,6 +169,7 @@ direct LoRA parameter manipulation.
 | **Depth Anything v3** | [github.com/DepthAnything/Depth-Anything-V3](https://github.com/DepthAnything/Depth-Anything-V3) |
 | **DINOv2** | [github.com/facebookresearch/dinov2](https://github.com/facebookresearch/dinov2) |
 | **DepthPro** | [github.com/apple/ml-depth-pro](https://github.com/apple/ml-depth-pro) |
+| **Depth Pro 2** | [github.com/apple-aiml-research/ml-depth-pro-2](https://github.com/apple-aiml-research/ml-depth-pro-2) |
 | **ZoeDepth** | [github.com/isl-org/ZoeDepth](https://github.com/isl-org/ZoeDepth) |
 | **MiDaS** | [github.com/isl-org/MiDaS](https://github.com/isl-org/MiDaS) |
 | **Pixel-Perfect Depth** | [github.com/gangweix/Pixel-Perfect-Depth](https://github.com/gangweix/Pixel-Perfect-Depth) |

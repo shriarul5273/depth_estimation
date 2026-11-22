@@ -15,7 +15,7 @@
 
 ---
 
-`depth_estimation` is a unified model framework for monocular depth estimation. It provides one consistent API across **12 model families and 28 variants**, so you can swap models, compare them, fine-tune them, and prepare them for deployment without rewriting your pipeline.
+`depth_estimation` is a unified model framework for monocular depth estimation. It provides one consistent API across **14 model families and 36 variants**, so you can swap models, compare them, fine-tune them, and prepare them for deployment without rewriting your pipeline.
 
 It covers the workflow end-to-end: run inference with one line, process video, visualize results, evaluate standard benchmarks, fine-tune on custom depth data, optimize models, and export them to ONNX.
 
@@ -32,9 +32,12 @@ pip install "depth-estimation[export]"
 
 # Export verification and ONNX quantization
 pip install "depth-estimation[export]" onnxruntime
+
+# Optional: 4-bit Marigold V2 on CUDA (bitsandbytes)
+pip install "depth-estimation[4bit]"
 ```
 
-Python 3.10–3.12 is supported. For GPU execution of exported models, replace `onnxruntime` with `onnxruntime-gpu`. See [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md) for the complete dependency guide.
+Python 3.10–3.12 and PyTorch 2.6+ are supported; the core install includes everything needed to run every model. For GPU execution of exported models, replace `onnxruntime` with `onnxruntime-gpu`. See [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md) for the complete dependency guide.
 
 ## Documentation
 
@@ -107,7 +110,7 @@ Export verification checks ONNX output against PyTorch, quantization verifies ac
 
 ## Supported Models
 
-12 model families · 28 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
+14 model families · 36 variants — see [docs/models.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/models.md) for the full list.
 
 All models support inference and CLI. The Trainable column indicates fine-tuning support via `DepthTrainer`.
 
@@ -120,8 +123,10 @@ All models support inference and CLI. The Trainable column indicates fine-tuning
 | ZoeDepth | nyu / kitti | Metric | ❌ |
 | MiDaS | dpt-large / dpt-hybrid / beit-large | Relative | ✅ |
 | Apple DepthPro | — | Metric | ✅ |
+| Apple Depth Pro 2 | s / b / l / h | Metric | ✅ |
 | Pixel-Perfect Depth | — | Relative | ❌ |
 | Marigold-DC | — | Relative (depth completion) | ❌ |
+| Marigold V2 | log / log-layered / uniform / disparity | Relative | ❌ |
 | MoGe | v1 vitl / v2 vitl / v2 vitb / v2 vits (+ normal variants) | Metric | ❌ |
 | OmniVGGT | vitl | Metric | ✅ |
 | VGGT | standard / commercial | Metric | ✅ |

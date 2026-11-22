@@ -196,3 +196,13 @@ class TestKeepAspectRatio:
         processor = DepthProcessor.from_config(config)
         pixel_values = processor.preprocess(sample_image_rgb)["pixel_values"]
         assert pixel_values.shape[2] == pixel_values.shape[3] == config.input_size
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
+def test_postprocess_accepts_reduced_precision(dtype):
+    # NumPy has no bfloat16; postprocess must not call .numpy() on it directly.
+    processor = DepthProcessor(config=BaseDepthConfig())
+    depth = torch.rand(1, 16, 24).to(dtype)
+    out = processor.postprocess(depth, [(32, 48)])
+    assert out.depth.dtype == np.float32
+    assert out.depth.shape == (32, 48)
