@@ -378,3 +378,25 @@ class TestMarigoldDCConfig:
 
         config = MarigoldDCConfig(num_inference_steps=10)
         assert config.num_inference_steps == 10
+
+
+class TestMarigoldV2Config:
+    # Folder names that exist in huawei-bayerlab/marigold-v2-0 (its manifest
+    # has no "depth/Log-base"; the paper model is "depth/Log-stage2").
+    @pytest.mark.parametrize(
+        "variant_id,checkpoint",
+        [
+            ("marigold-v2", "depth/Log-stage2"),
+            ("marigold-v2-log-layered", "depth/Log-layered"),
+            ("marigold-v2-uniform", "depth/Uniform-base"),
+            ("marigold-v2-disparity", "depth/Disparity-base"),
+        ],
+    )
+    def test_checkpoint_folders(self, variant_id, checkpoint):
+        from depth_estimation.models.marigold_v2.configuration_marigold_v2 import (
+            MarigoldV2Config,
+        )
+
+        config = MarigoldV2Config.from_variant(variant_id)
+        assert config.checkpoint == checkpoint
+        assert config.embed_prefix == "qwen_edit_2509_qwen_depth_realimg512"

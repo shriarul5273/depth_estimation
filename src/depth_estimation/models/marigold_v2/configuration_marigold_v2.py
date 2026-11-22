@@ -7,7 +7,7 @@ from ...configuration_utils import BaseDepthConfig
 
 _MARIGOLD_V2_VARIANT_MAP = {
     # Default: log-space affine-invariant depth (best quality)
-    "marigold-v2": "depth/Log-base",
+    "marigold-v2": "depth/Log-stage2",
     # See-through log depth (predicts geometry behind glass)
     "marigold-v2-log-layered": "depth/Log-layered",
     # Linear (Marigold V1-style) depth
@@ -18,7 +18,7 @@ _MARIGOLD_V2_VARIANT_MAP = {
 
 # Per-checkpoint text-embedding prefix (used to select precomputed embeddings)
 _CHECKPOINT_EMBED_PREFIX = {
-    "depth/Log-base": "qwen_edit_2509_qwen_depth_realimg512",
+    "depth/Log-stage2": "qwen_edit_2509_qwen_depth_realimg512",
     "depth/Log-layered": "qwen_edit_2509_qwen_depth_realimg512",
     "depth/Uniform-base": "qwen_edit_2509_qwen_depth_realimg512",
     "depth/Disparity-base": "qwen_edit_2509_qwen_depth_realimg512",
@@ -49,7 +49,7 @@ class MarigoldV2Config(BaseDepthConfig):
         input_size: int = 1024,
         patch_size: int = 16,
         # Which LoRA checkpoint subfolder in hub_model_id to load
-        checkpoint: str = "depth/Log-base",
+        checkpoint: str = "depth/Log-stage2",
         # HuggingFace repo for LoRA adapters + text embeddings
         hub_model_id: str = "huawei-bayerlab/marigold-v2-0",
         # HuggingFace repo (or local path) for the Qwen base model

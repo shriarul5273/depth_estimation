@@ -114,7 +114,7 @@ the package; for 4-bit quantization on CUDA also install
 
 | Variant ID | Checkpoint | Output | Inference | CLI | Trainable |
 |---|---|---|:---:|:---:|:---:|
-| `marigold-v2` | `depth/Log-base` | affine-invariant log depth | ✅ | ✅ | ❌⁵ |
+| `marigold-v2` | `depth/Log-stage2` | affine-invariant log depth (paper model) | ✅ | ✅ | ❌⁵ |
 | `marigold-v2-log-layered` | `depth/Log-layered` | see-through log depth (glass) | ✅ | ✅ | ❌⁵ |
 | `marigold-v2-uniform` | `depth/Uniform-base` | affine-invariant linear depth | ✅ | ✅ | ❌⁵ |
 | `marigold-v2-disparity` | `depth/Disparity-base` | affine-invariant disparity | ✅ | ✅ | ❌⁵ |

@@ -11,7 +11,7 @@ Architecture:
     text-prompt embeddings (no text encoder needed at runtime)
 
 Checkpoints available on HuggingFace at huawei-bayerlab/marigold-v2-0:
-  - depth/Log-base        : affine-invariant log depth (default)
+  - depth/Log-stage2      : affine-invariant log depth (default; the paper model)
   - depth/Log-layered     : see-through log depth (glass/transparent objects)
   - depth/Uniform-base    : affine-invariant linear depth
   - depth/Disparity-base  : affine-invariant inverse depth / disparity
@@ -29,6 +29,8 @@ Reference: https://github.com/huawei-bayerlab/marigold-v2
 
 from __future__ import annotations
 
+import functools
+import inspect
 import logging
 from typing import Any
 
@@ -79,6 +81,14 @@ def _check_diffusers():
         )
     except ImportError:
         return False
+
+
+@functools.lru_cache(maxsize=None)
+def _dit_takes_txt_seq_lens() -> bool:
+    """Whether this diffusers' QwenImageTransformer2DModel.forward accepts txt_seq_lens."""
+    from diffusers import QwenImageTransformer2DModel
+
+    return "txt_seq_lens" in inspect.signature(QwenImageTransformer2DModel.forward).parameters
 
 
 def _check_peft():
@@ -346,7 +356,11 @@ class MarigoldV2Model(BaseDepthModel):
         )
         timestep = torch.full((B,), 499.0, device=device, dtype=run_dtype) / 1000.0
         img_shapes = [[(1, H // 2, W // 2)]] * B
-        txt_seq_lens = pm.sum(dim=1).tolist()
+        dit_kwargs = {}
+        # diffusers <= 0.39 takes the text lengths explicitly; 0.40+ removed
+        # `txt_seq_lens` and derives them from encoder_hidden_states_mask.
+        if _dit_takes_txt_seq_lens():
+            dit_kwargs["txt_seq_lens"] = pm.sum(dim=1).tolist()
 
         with torch.no_grad():
             model_pred = transformer(
@@ -355,9 +369,9 @@ class MarigoldV2Model(BaseDepthModel):
                 encoder_hidden_states=pe,
                 encoder_hidden_states_mask=pm,
                 img_shapes=img_shapes,
-                txt_seq_lens=txt_seq_lens,
                 guidance=None,
                 return_dict=False,
+                **dit_kwargs,
             )[0]
 
         temporal_downsample = getattr(vae.config, "temperal_downsample", None)
