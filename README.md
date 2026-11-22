@@ -32,9 +32,12 @@ pip install "depth-estimation[export]"
 
 # Export verification and ONNX quantization
 pip install "depth-estimation[export]" onnxruntime
+
+# Optional: 4-bit Marigold V2 on CUDA (bitsandbytes)
+pip install "depth-estimation[4bit]"
 ```
 
-Python 3.10–3.12 is supported. For GPU execution of exported models, replace `onnxruntime` with `onnxruntime-gpu`. See [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md) for the complete dependency guide.
+Python 3.10–3.12 and PyTorch 2.6+ are supported; the core install includes everything needed to run every model. For GPU execution of exported models, replace `onnxruntime` with `onnxruntime-gpu`. See [docs/dependencies.md](https://github.com/shriarul5273/depth_estimation/blob/main/docs/dependencies.md) for the complete dependency guide.
 
 ## Documentation
 
@@ -123,6 +126,7 @@ All models support inference and CLI. The Trainable column indicates fine-tuning
 | Apple Depth Pro 2 | s / b / l / h | Metric | ✅ |
 | Pixel-Perfect Depth | — | Relative | ❌ |
 | Marigold-DC | — | Relative (depth completion) | ❌ |
+| Marigold V2 | log / log-layered / uniform / disparity | Relative | ❌ |
 | MoGe | v1 vitl / v2 vitl / v2 vitb / v2 vits (+ normal variants) | Metric | ❌ |
 | OmniVGGT | vitl | Metric | ✅ |
 | VGGT | standard / commercial | Metric | ✅ |
