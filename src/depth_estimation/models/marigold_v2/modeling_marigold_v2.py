@@ -44,6 +44,10 @@ logger = logging.getLogger(__name__)
 
 # LoRA target modules (proj_out excluded: it is dequantized to bf16 and its
 # weights are stored as base weights in trainables.safetensors, not as LoRA)
+# Components saved in trainables.safetensors (see _load_trainable_weights).
+_TRAINABLE_COMPONENTS = ("Diffuser", "VAE")
+_TRAINING_ONLY_COMPONENTS = ("iREPAStudentProjector",)
+
 _LORA_TARGET_MODULES = [
     "img_in",
     "txt_in",
@@ -225,42 +229,37 @@ class MarigoldV2Model(BaseDepthModel):
     def _load_trainable_weights(self, vae, transformer):
         from huggingface_hub import hf_hub_download
         from safetensors.torch import load_file
-        from peft import set_peft_model_state_dict
 
         filename = f"{self.config.checkpoint}/trainables.safetensors"
-        logger.info(f"Downloading LoRA weights: {self.config.hub_model_id}/{filename}")
+        logger.info(f"Downloading fine-tuned weights: {self.config.hub_model_id}/{filename}")
         path = hf_hub_download(self.config.hub_model_id, filename=filename)
         state_dict = load_file(path, device="cpu")
 
-        # Separate LoRA (transformer) keys from base-weight keys (proj_out,
-        # VAE decoder). proj_out was dequantized to bf16 during training and
-        # stored as a plain weight, not a LoRA pair.
-        lora_keys = {k: v for k, v in state_dict.items() if "lora_" in k}
-        proj_out_keys = {k: v for k, v in state_dict.items() if "proj_out" in k and "lora_" not in k}
-        vae_keys = {
-            k: v
-            for k, v in state_dict.items()
-            if k.startswith("decoder.") or k.startswith("post_quant_conv.")
-        }
+        # Keys are "<component>.<module key>", as written by the upstream
+        # training code: "Diffuser." (LoRA on the Qwen DiT), "VAE." (the
+        # fine-tuned VAE decoder, in some checkpoints) and
+        # "iREPAStudentProjector." (a training-only head, not needed here).
+        by_component: dict = {}
+        for key, value in state_dict.items():
+            component, rest = key.split(".", 1)
+            by_component.setdefault(component, {})[rest] = value
+        unknown = set(by_component) - set(_TRAINABLE_COMPONENTS) - set(_TRAINING_ONLY_COMPONENTS)
+        if unknown:
+            raise KeyError(f"Unknown components in {filename}: {sorted(unknown)}")
+        if "Diffuser" not in by_component:
+            raise KeyError(f"{filename} has no 'Diffuser.' weights")
 
-        if lora_keys:
-            incompatible = set_peft_model_state_dict(
-                transformer, lora_keys, adapter_name="default"
-            )
-            unexpected = getattr(incompatible, "unexpected_keys", [])
+        for component, module in (("Diffuser", transformer), ("VAE", vae)):
+            weights = by_component.get(component)
+            if not weights:
+                continue
+            _, unexpected = module.load_state_dict(weights, strict=False)
             if unexpected:
-                logger.warning(f"Unexpected LoRA keys: {unexpected[:5]}...")
-            logger.info(f"Loaded {len(lora_keys)} LoRA weight tensors")
-
-        if proj_out_keys:
-            # Load fine-tuned proj_out weights directly into the base model
-            base = transformer.base_model.model if hasattr(transformer, "base_model") else transformer
-            missing, unexpected = base.load_state_dict(proj_out_keys, strict=False)
-            logger.info(f"Loaded {len(proj_out_keys)} proj_out weight tensors")
-
-        if vae_keys:
-            missing, _ = vae.load_state_dict(vae_keys, strict=False)
-            logger.info(f"Loaded {len(vae_keys)} VAE decoder weight tensors")
+                raise KeyError(
+                    f"{len(unexpected)} of {len(weights)} '{component}.' tensors in "
+                    f"{filename} match no parameter, e.g. {unexpected[:3]}"
+                )
+            logger.info(f"Loaded {len(weights)} {component} tensors from {filename}")
 
     def _load_text_embeddings(self, device):
         import torch
