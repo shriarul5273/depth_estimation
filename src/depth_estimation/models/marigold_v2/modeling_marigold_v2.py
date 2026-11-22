@@ -419,8 +419,9 @@ class MarigoldV2Model(BaseDepthModel):
                 lat_out = self._run_dit_step(lat)
                 pixel_pred = self._decode_latents(lat_out)  # [1, 3, H_enc, W_enc]
 
-            # Average 3 output channels → depth in [-1, 1]
-            depth = pixel_pred.mean(dim=1)  # [1, H_enc, W_enc]
+            # Average 3 output channels → depth in [-1, 1]. The VAE runs in
+            # bfloat16; return float32 like every other model.
+            depth = pixel_pred.float().mean(dim=1)  # [1, H_enc, W_enc]
 
             # Resize back to input spatial size if VAE changed it
             if depth.shape[-2:] != (H, W):

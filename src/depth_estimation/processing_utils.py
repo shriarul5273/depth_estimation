@@ -149,7 +149,9 @@ class DepthProcessor:
                 align_corners=False,
             )[0, 0]
 
-            depth_np = depth_resized.cpu().numpy().astype(np.float32)
+            # .float() first: NumPy has no bfloat16, so a model run in
+            # reduced precision would otherwise fail in .numpy().
+            depth_np = depth_resized.float().cpu().numpy()
 
             # Normalize to [0, 1]
             d_min, d_max = depth_np.min(), depth_np.max()

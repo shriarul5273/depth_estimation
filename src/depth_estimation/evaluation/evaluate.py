@@ -226,7 +226,7 @@ def evaluate(
 
                 # Resize prediction to GT resolution
                 pred_resized = F.interpolate(
-                    raw_preds[b].unsqueeze(0).unsqueeze(0),
+                    raw_preds[b].float().unsqueeze(0).unsqueeze(0),
                     size=(oh, ow),
                     mode="bilinear",
                     align_corners=False,
