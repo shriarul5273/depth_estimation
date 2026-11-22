@@ -65,8 +65,8 @@ Sharp, temporally consistent metric depth from a DINOv3 multi-view
 transformer. Every size loads the shared focal-length estimator
 (`apple/DepthPro2-focal`, 23.5M params) to recover metric scale when the
 focal length is unknown. Runs at the processor's resolution (shorter side
-`input_size`, default 768) padded to a multiple of 32. Needs `timm>=1.0.20`
-for the DINOv3 backbones.
+`input_size`, default 768) padded to a multiple of 32. The DINOv3 backbones
+come from `timm>=1.0.20`, which the package installs.
 
 | Variant ID | Backbone | Params | Source | Inference | CLI | Trainable |
 |---|---|---|---|:---:|:---:|:---:|
@@ -107,8 +107,9 @@ out["focallength_px"]  # estimated focal length in pixels
 
 Single-step diffusion transformer depth estimation using a Qwen-Image-Edit-2509
 backbone with LoRA adapters. Outputs affine-invariant depth (log-space by default).
-Requires `diffusers>=0.38`, `peft`, `safetensors`, and optionally `bitsandbytes`
-for 4-bit quantization. The Qwen base model (~17 GB) must be accessible as
+Its dependencies (`diffusers>=0.38`, `peft`, `safetensors`) are installed with
+the package; for 4-bit quantization on CUDA also install
+`pip install "depth-estimation[4bit]"` (`bitsandbytes`, needs torch>=2.4). The Qwen base model (~17 GB) must be accessible as
 `Qwen/Qwen-Image-Edit-2509` on HuggingFace Hub or via a local path set in config.
 
 | Variant ID | Checkpoint | Output | Inference | CLI | Trainable |

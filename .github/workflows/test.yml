@@ -92,14 +92,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-        # "2.0.1" = our declared minimum (torch>=2.0 in pyproject.toml).
+        # "2.6.0" = our declared minimum (torch>=2.6 in pyproject.toml), the
+        #           oldest torch current transformers/diffusers accept.
         # "2.9.0" = the version we previously hard-pinned.
         # ""      = whatever pip resolves as latest — catches upcoming breaks early.
-        torch-version: ["2.0.1", "2.9.0", ""]
-        exclude:
-          # torch==2.0.1 has no published wheel for Python 3.12.
-          - python-version: "3.12"
-            torch-version: "2.0.1"
+        torch-version: ["2.6.0", "2.9.0", ""]
 
     steps:
       - uses: actions/checkout@v7.0.1
@@ -115,12 +112,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]" --no-deps
-          # numpy<2: torch==2.0.1's compiled extension predates NumPy 2.0's
-          # ABI changes, so tensor.numpy() breaks under an unpinned (numpy 2.x)
-          # install. numpy 1.x works fine across every torch version we test.
-          python -m pip install pytest pytest-cov Pillow "numpy<2" matplotlib \
-            opencv-python huggingface-hub transformers diffusers accelerate \
-            timm einops addict h5py tqdm onnx onnxruntime
+          python -m pip install pytest pytest-cov Pillow numpy matplotlib \
+            opencv-python huggingface-hub transformers "diffusers>=0.38" accelerate \
+            peft safetensors "timm>=1.0.20" einops addict h5py tqdm onnx onnxruntime
 
       - name: Install torch (CPU wheel)
         run: |
