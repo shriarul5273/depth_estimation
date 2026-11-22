@@ -1,3 +1,51 @@
+# v0.2.0 — 🍎 Depth Pro 2, Marigold V2 & Dependency Fixes
+
+This release adds two model families — Apple Depth Pro 2 and Marigold V2 —
+and fixes the package's dependency floors so that a plain install can run every
+model. The library now covers **14 model families and 36 variants**.
+
+## ✨ New models
+
+- **Apple Depth Pro 2** (`depth-pro-2-s`, `-b`, `-l`, `-h`): sharp, temporally
+  consistent metric depth from a DINOv3 multi-view transformer, with Apple's
+  focal-length estimator (`apple/DepthPro2-focal`) recovering metric scale when
+  the focal length is unknown. The network is ported into a single
+  self-contained file, with outputs identical to Apple's reference
+  implementation for all four sizes. `model.infer()` accepts a known focal
+  length and multi-frame clips whose frames attend to each other. Trainable with
+  `DepthTrainer`. Weights are research-only under Apple's AMLR license.
+- **Marigold V2** (`marigold-v2`, `-log-layered`, `-uniform`, `-disparity`):
+  single-step depth from a Qwen-Image-Edit DiT with LoRA adapters. The default
+  variant uses the paper's `depth/Log-stage2` checkpoint. It runs in 4-bit on
+  CUDA with the new `[4bit]` extra (~19 GB GPU memory) or in bfloat16 otherwise
+  (~46 GB).
+
+## ⚠️ Dependency changes
+
+The minimum versions now reflect what the models actually need:
+
+- `torch>=2.6` and `torchvision>=0.21` (previously `>=2.0` / `>=0.15`). Current
+  `transformers` and `diffusers` reject older PyTorch, which broke ZoeDepth,
+  MiDaS, Marigold-DC and Marigold V2 on the old floor. **If you are on
+  PyTorch < 2.6, upgrade before installing this release.**
+- `timm>=1.0.20` for the DINOv3 backbones used by Depth Pro 2.
+- `diffusers>=0.38`, `peft` and `safetensors` are now core dependencies.
+- New optional extra: `pip install "depth-estimation[4bit]"` installs
+  `bitsandbytes` for 4-bit Marigold V2 on CUDA.
+
+## 🐛 Fixes
+
+- `DepthProcessor.postprocess()` and `evaluate()` now accept bfloat16 and
+  float16 model outputs instead of failing in NumPy conversion.
+
+## 🧪 Testing
+
+- Every variant except the gated `vggt-commercial` was run with real weights
+  on an A100 80GB GPU, and the full fast and slow test suites pass.
+- CI's minimum-PyTorch job now tests PyTorch 2.6.0 on Python 3.10–3.12.
+
+---
+
 # v0.1.3 — 📚 Documentation Refresh
 
 This patch release refreshes the package documentation so installation,

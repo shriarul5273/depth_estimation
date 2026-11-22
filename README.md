@@ -19,7 +19,7 @@
 
 It covers the workflow end-to-end: run inference with one line, process video, visualize results, evaluate standard benchmarks, fine-tune on custom depth data, optimize models, and export them to ONNX.
 
-> **Latest release: v0.1.3 — Documentation Refresh.** It adds clearer installation paths, a documentation index, updated deployment guidance, and corrected ONNX verification dependencies. Read the [release notes](https://github.com/shriarul5273/depth_estimation/blob/main/docs/release_notes.md) or view the [GitHub release](https://github.com/shriarul5273/depth_estimation/releases/tag/v0.1.3).
+> **Latest release: v0.2.0 — Depth Pro 2, Marigold V2 & Dependency Fixes.** It adds Apple Depth Pro 2 and Marigold V2, and raises the minimum versions (PyTorch 2.6+) so a plain install runs every model. Read the [release notes](https://github.com/shriarul5273/depth_estimation/blob/main/docs/release_notes.md) or view the [GitHub release](https://github.com/shriarul5273/depth_estimation/releases/tag/v0.2.0).
 
 ## Installation
 
