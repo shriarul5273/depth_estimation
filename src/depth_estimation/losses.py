@@ -12,6 +12,7 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class ScaleInvariantLoss(nn.Module):
@@ -247,3 +248,59 @@ class CombinedDepthLoss(nn.Module):
         grad = self.grad_loss(pred, target, valid_mask)
         total = self.si_weight * si + self.grad_weight * grad
         return {"loss": total, "si_loss": si, "grad_loss": grad}
+
+
+class DisparityLoss(nn.Module):
+    """Masked disparity loss for stereo models (e.g. S2M2 fine-tuning).
+
+    Disparity is in pixels and needs no scale alignment, so this is a plain
+    masked L1 / smooth-L1 (Huber, ``beta`` px) over valid ground truth — the
+    standard stereo fine-tuning objective.
+
+    Args:
+        kind: ``"smooth_l1"`` (default) or ``"l1"``.
+        beta: Smooth-L1 transition point in pixels. Default 1.0.
+
+    Example::
+
+        loss_fn = DisparityLoss()
+        losses = loss_fn(pred_disp, gt_disp, valid_mask)
+        losses["loss"].backward()
+    """
+
+    def __init__(self, kind: str = "smooth_l1", beta: float = 1.0):
+        super().__init__()
+        if kind not in ("smooth_l1", "l1"):
+            raise ValueError(f"kind must be 'smooth_l1' or 'l1', got {kind!r}")
+        self.kind = kind
+        self.beta = beta
+
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        valid_mask: Optional[torch.Tensor] = None,
+    ) -> Dict[str, torch.Tensor]:
+        """Compute the loss.
+
+        Args:
+            pred: Predicted disparity ``(B, H, W)`` or ``(B, 1, H, W)``.
+            target: Ground-truth disparity, same shape.
+            valid_mask: Boolean mask, same shape. Optional.
+
+        Returns:
+            Dict with ``"loss"`` and ``"disparity_loss"`` (the same value).
+        """
+        pred = pred.reshape(target.shape).float()
+        target = target.float()
+        mask = torch.isfinite(target)
+        if valid_mask is not None:
+            mask = mask & valid_mask.reshape(target.shape).bool()
+        if not mask.any():
+            zero = pred.sum() * 0.0
+            return {"loss": zero, "disparity_loss": zero}
+        if self.kind == "l1":
+            loss = (pred[mask] - target[mask]).abs().mean()
+        else:
+            loss = F.smooth_l1_loss(pred[mask], target[mask], beta=self.beta)
+        return {"loss": loss, "disparity_loss": loss}

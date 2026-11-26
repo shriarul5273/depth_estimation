@@ -75,6 +75,7 @@ Verified numerically — output compared against the PyTorch model, not just "ex
 | `pixel-perfect-depth` | ⚠️ Exports without error but output does **not** match PyTorch — see below |
 | `marigold-dc`, `zoedepth` | ❌ **Not exportable at all** — `export_onnx()` raises `NotImplementedError` immediately rather than attempting a doomed trace. See [Opaque-pipeline models](#opaque-pipeline-models-are-not-exportable) below. |
 | `midas-dpt-large`, `midas-dpt-hybrid`, `midas-beit-large` | Inference (non-export) confirmed working on real non-square images. Export itself hasn't been independently verified. |
+| `s2m2-*` (stereo) | ✅ Verified against real weights: two inputs `left` / `right`, dynamic batch; static H/W (`dynamic_spatial` is rejected). See the [stereo guide](stereo.md#onnx-export). |
 | `vggt`, `omnivggt` | Not tested — need real pretrained weights to construct at all (no offline random-weight path), and (for `vggt`) more VRAM than fits alongside a live PyTorch model on an 8GB GPU. Same `scaled_dot_product_attention` requirement as `moge`. |
 
 ## Known Limitations

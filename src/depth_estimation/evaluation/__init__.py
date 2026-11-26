@@ -42,7 +42,13 @@ Quick start
     print(f"{p['mean_ms']:.1f} ms  |  {p['fps']:.1f} FPS")
 """
 
-from .metrics import DepthMetrics, Evaluator, align_least_squares
+from .metrics import (
+    STEREO_METRICS,
+    DepthMetrics,
+    Evaluator,
+    StereoEvaluator,
+    align_least_squares,
+)
 from .evaluate import evaluate, compare
 from .profiling import profile_latency
 
@@ -51,6 +57,8 @@ __all__ = [
     "compare",
     "DepthMetrics",
     "Evaluator",
+    "StereoEvaluator",
+    "STEREO_METRICS",
     "align_least_squares",
     "profile_latency",
 ]

@@ -1,8 +1,10 @@
 """
 Video and streaming inference for depth estimation.
 
-VideoStream   — iterable wrapper over video files, webcam, or frame globs
-process_video — read a video, run depth estimation, write output video
+VideoStream       — iterable wrapper over video files, webcam, or frame globs
+StereoVideoStream — the same for stereo: two synchronized sources, or one
+                    side-by-side / top-and-bottom packed source
+process_video     — read a video, run depth estimation, write output video
 """
 
 import glob as _glob
@@ -17,6 +19,9 @@ from tqdm import tqdm
 from .processing_utils import DepthProcessor
 
 logger = logging.getLogger(__name__)
+
+Source = Union[str, int]
+StereoSource = Union[Source, Tuple[Source, Source]]
 
 _VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v", ".flv", ".wmv"}
 
@@ -187,21 +192,187 @@ class VideoStream:
         return None
 
 
+_STEREO_LAYOUTS = ("sbs", "tab")
+
+
+def split_stereo_frame(frame: np.ndarray, layout: str) -> Tuple[np.ndarray, np.ndarray]:
+    """Split a packed stereo frame into ``(left, right)``.
+
+    ``layout="sbs"``: left | right side by side. ``layout="tab"``: left above
+    right. An odd trailing row/column is dropped so both views match.
+    """
+    if layout not in _STEREO_LAYOUTS:
+        raise ValueError(f"layout must be one of {_STEREO_LAYOUTS}, got {layout!r}.")
+    h, w = frame.shape[:2]
+    if layout == "sbs":
+        half = w // 2
+        return frame[:, :half], frame[:, half : 2 * half]
+    half = h // 2
+    return frame[:half], frame[half : 2 * half]
+
+
+class StereoVideoStream:
+    """Iterable over stereo frame pairs, for stereo models such as S2M2.
+
+    Yields ``((left_rgb, right_rgb), metadata)``, with the same metadata keys
+    as :class:`VideoStream` (taken from the left source).
+
+    Two ways to provide the views:
+
+    - ``source=(left, right)`` — two synchronized sources, each anything
+      :class:`VideoStream` accepts (video files, webcam indices or frame
+      globs). Iteration stops at the shorter one.
+    - ``source=video, layout="sbs"`` (left | right, side by side) or
+      ``layout="tab"`` (left above right) — one source with both views packed
+      into each frame, as many stereo cameras record.
+
+    Example::
+
+        with StereoVideoStream(("left.mp4", "right.mp4")) as stream:
+            for (left, right), meta in stream:
+                ...
+    """
+
+    def __init__(
+        self,
+        source: StereoSource,
+        layout: Optional[str] = None,
+        batch_size: int = 1,
+        temporal_smoothing: float = 0.0,
+    ) -> None:
+        self.source = source
+        self.layout = layout
+        self.batch_size = batch_size
+        self.temporal_smoothing = temporal_smoothing
+        self._prev_depth: Optional[np.ndarray] = None
+
+        if isinstance(source, tuple):
+            if len(source) != 2:
+                raise ValueError(
+                    f"Stereo source tuple must be (left, right), got {len(source)} items."
+                )
+            if layout is not None:
+                raise ValueError(
+                    "Pass either a (left, right) source tuple or a single packed "
+                    "source with layout='sbs'/'tab', not both."
+                )
+            self._left = VideoStream(source[0])
+            try:
+                self._right: Optional[VideoStream] = VideoStream(source[1])
+            except Exception:
+                self._left.close()
+                raise
+        else:
+            if layout not in _STEREO_LAYOUTS:
+                raise ValueError(
+                    "A single stereo source needs layout='sbs' (side by side) or "
+                    "'tab' (top and bottom); for two separate sources pass a "
+                    f"(left, right) tuple. Got layout={layout!r}."
+                )
+            self._left = VideoStream(source)
+            self._right = None
+
+    def __iter__(self) -> Iterator[Tuple[Tuple[np.ndarray, np.ndarray], dict]]:
+        self._prev_depth = None
+        if self._right is None:
+            for frame, meta in self._left:
+                yield split_stereo_frame(frame, self.layout), meta
+            return
+        right_iter = iter(self._right)
+        for left, meta in self._left:
+            right = next(right_iter, None)
+            if right is None:
+                logger.warning(
+                    "Right source ended before the left one at frame %d; stopping.",
+                    meta["frame_index"],
+                )
+                return
+            right_frame = right[0]
+            if right_frame.shape != left.shape:
+                raise ValueError(
+                    f"Left and right frames differ in size at frame "
+                    f"{meta['frame_index']}: {left.shape[:2]} vs {right_frame.shape[:2]}."
+                )
+            yield (left, right_frame), meta
+
+    _temporal_filter = VideoStream._temporal_filter
+
+    def close(self) -> None:
+        self._left.close()
+        if self._right is not None:
+            self._right.close()
+
+    def __enter__(self) -> "StereoVideoStream":
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.close()
+
+    @property
+    def fps(self) -> float:
+        return self._left.fps
+
+    @property
+    def total_frames(self) -> Optional[int]:
+        counts = [s.total_frames for s in (self._left, self._right) if s is not None]
+        if any(c is None for c in counts):
+            return None
+        return min(counts)
+
+
+def open_stream(
+    source: StereoSource,
+    is_stereo: bool = False,
+    stereo_layout: Optional[str] = None,
+    batch_size: int = 1,
+    temporal_smoothing: float = 0.0,
+) -> Union[VideoStream, StereoVideoStream]:
+    """Open the right stream type for a model.
+
+    Stereo models get a :class:`StereoVideoStream`; monocular models a
+    :class:`VideoStream`. Raises a clear error when the source shape does not
+    match the model (a single unpacked source for a stereo model, or stereo
+    input for a monocular one).
+    """
+    if is_stereo:
+        if not isinstance(source, tuple) and stereo_layout is None:
+            raise ValueError(
+                "This is a stereo model: pass source=(left, right) with two "
+                "synchronized sources, or a single packed source with "
+                "stereo_layout='sbs' (side by side) or 'tab' (top and bottom)."
+            )
+        return StereoVideoStream(
+            source,
+            layout=stereo_layout,
+            batch_size=batch_size,
+            temporal_smoothing=temporal_smoothing,
+        )
+    if isinstance(source, tuple) or stereo_layout is not None:
+        raise ValueError(
+            "Stereo video input ((left, right) sources or stereo_layout) needs "
+            "a stereo model such as s2m2-l; this model is monocular."
+        )
+    return VideoStream(source, batch_size=batch_size, temporal_smoothing=temporal_smoothing)
+
+
 def process_video(
     pipeline,
-    input_path: str,
+    input_path: StereoSource,
     output_path: str,
     colormap: str = "inferno",
     side_by_side: bool = True,
     fps: Optional[float] = None,
     temporal_smoothing: float = 0.0,
     batch_size: int = 1,
+    stereo_layout: Optional[str] = None,
 ) -> None:
     """Read a video, run depth estimation on each frame, and write an output video.
 
     Args:
         pipeline: A ``DepthPipeline`` instance.
-        input_path: Path to the input video file.
+        input_path: Path to the input video file. For stereo models, a
+            ``(left, right)`` tuple of sources, or one packed source with
+            ``stereo_layout``.
         output_path: Path for the output video file (must end in ``.mp4`` or ``.avi``).
         colormap: Matplotlib colormap for depth visualization.
         side_by_side: If ``True``, write RGB | depth side-by-side; otherwise
@@ -209,9 +380,16 @@ def process_video(
         fps: Output FPS.  ``None`` matches the input video FPS.
         temporal_smoothing: EMA coefficient for depth smoothing (0.0 = disabled).
         batch_size: Number of frames to process per forward pass.
+        stereo_layout: For stereo models with a single packed source:
+            ``"sbs"`` (left | right) or ``"tab"`` (left above right). The
+            side-by-side output shows the left view next to its depth.
     """
-    stream = VideoStream(
-        input_path, batch_size=batch_size, temporal_smoothing=temporal_smoothing
+    stream = open_stream(
+        input_path,
+        is_stereo=getattr(getattr(pipeline.model, "config", None), "is_stereo", False) is True,
+        stereo_layout=stereo_layout,
+        batch_size=batch_size,
+        temporal_smoothing=temporal_smoothing,
     )
 
     src_fps = fps or stream.fps
@@ -235,8 +413,9 @@ def process_video(
                 # Colorize smoothed depth
                 colored_depth = DepthProcessor._colorize(smoothed, colormap)
 
-                # Build output frame
-                H, W = frame_rgb.shape[:2]
+                # Build output frame (the left view for stereo pairs)
+                if isinstance(frame_rgb, tuple):
+                    frame_rgb = frame_rgb[0]
                 colored_bgr = cv2.cvtColor(colored_depth, cv2.COLOR_RGB2BGR)
 
                 if side_by_side:

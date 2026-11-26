@@ -325,3 +325,76 @@ class Evaluator:
     def n_pixels(self) -> int:
         """Total number of valid pixels accumulated so far."""
         return self._n_pixels
+
+
+# ---------------------------------------------------------------------------
+# Stereo (disparity) metrics
+# ---------------------------------------------------------------------------
+
+#: Stereo metric names; all are lower-is-better.
+STEREO_METRICS = ("epe", "bad1", "bad2", "bad3", "d1")
+
+
+class StereoEvaluator:
+    """Accumulate standard disparity metrics across a stereo dataset.
+
+    =====  ===========================================================
+    Name   Definition (over valid pixels, accumulated over all pixels)
+    =====  ===========================================================
+    epe    mean |d - d̂| in pixels (end-point error)
+    bad1   fraction with |d - d̂| > 1 px (Middlebury / ETH3D "bad 1.0")
+    bad2   fraction with |d - d̂| > 2 px
+    bad3   fraction with |d - d̂| > 3 px
+    d1     fraction with |d - d̂| > 3 px **and** > 5 % of d (KITTI D1)
+    =====  ===========================================================
+
+    Fractions are in ``[0, 1]``; multiply by 100 for the percentages that
+    benchmarks report. Like :class:`Evaluator`, metrics are pooled over all
+    valid pixels rather than averaged per image.
+    """
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        self._sum_err = 0.0
+        self._bad = {1: 0, 2: 0, 3: 0}
+        self._d1 = 0
+        self._n_pixels = 0
+
+    def update(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        valid_mask: Optional[torch.Tensor] = None,
+    ) -> None:
+        """Accumulate one batch of disparity maps (any matching shapes)."""
+        pred, target = pred.float(), target.float()
+        mask = torch.isfinite(target) if valid_mask is None else valid_mask.bool()
+        mask = mask.reshape(target.shape) & torch.isfinite(target)
+        err = (pred.reshape(target.shape) - target)[mask].abs()
+        if err.numel() == 0:
+            return
+        gt = target[mask].abs()
+        self._sum_err += err.sum().item()
+        for t in self._bad:
+            self._bad[t] += int((err > t).sum().item())
+        self._d1 += int(((err > 3) & (err > 0.05 * gt)).sum().item())
+        self._n_pixels += err.numel()
+
+    def compute(self) -> dict:
+        n = self._n_pixels
+        if n == 0:
+            return {**{k: 0.0 for k in STEREO_METRICS}, "n_pixels": 0}
+        return {
+            "epe": self._sum_err / n,
+            "bad1": self._bad[1] / n,
+            "bad2": self._bad[2] / n,
+            "bad3": self._bad[3] / n,
+            "d1": self._d1 / n,
+            "n_pixels": n,
+        }
+
+    @property
+    def n_pixels(self) -> int:
+        return self._n_pixels

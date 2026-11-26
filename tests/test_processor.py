@@ -206,3 +206,44 @@ def test_postprocess_accepts_reduced_precision(dtype):
     out = processor.postprocess(depth, [(32, 48)])
     assert out.depth.dtype == np.float32
     assert out.depth.shape == (32, 48)
+
+
+class TestStereoPairs:
+    """Stereo models (S2M2) take a (left, right) tuple per sample."""
+
+    @pytest.fixture
+    def stereo_processor(self):
+        from depth_estimation.models.s2m2.configuration_s2m2 import S2M2Config
+
+        return DepthProcessor.from_config(S2M2Config(input_size=64))
+
+    def test_pair_stacks_on_channels(self, stereo_processor):
+        left = np.random.randint(0, 255, (48, 80, 3), dtype=np.uint8)
+        right = np.random.randint(0, 255, (48, 80, 3), dtype=np.uint8)
+        out = stereo_processor.preprocess((left, right))
+        pv = out["pixel_values"]
+        assert pv.shape[:2] == (1, 6)
+        assert pv.shape[2] % 32 == 0 and pv.shape[3] % 32 == 0
+        assert out["original_sizes"] == [(48, 80)]
+        # each half is exactly the single-image transform of that view
+        assert torch.equal(pv[:, :3], stereo_processor._transform(left))
+        assert torch.equal(pv[:, 3:], stereo_processor._transform(right))
+
+    def test_list_of_pairs_batches(self, stereo_processor):
+        img = np.zeros((64, 64, 3), dtype=np.uint8)
+        out = stereo_processor.preprocess([(img, img), (img, img)])
+        assert out["pixel_values"].shape[:2] == (2, 6)
+
+    def test_single_image_rejected(self, stereo_processor, sample_image_rgb):
+        with pytest.raises(TypeError, match="stereo model"):
+            stereo_processor.preprocess(sample_image_rgb)
+
+    def test_mismatched_sizes_rejected(self, stereo_processor):
+        left = np.zeros((48, 80, 3), dtype=np.uint8)
+        right = np.zeros((48, 64, 3), dtype=np.uint8)
+        with pytest.raises(ValueError, match="same size"):
+            stereo_processor.preprocess((left, right))
+
+    def test_monocular_rejects_pair(self, processor, sample_image_rgb):
+        with pytest.raises(TypeError, match="monocular"):
+            processor.preprocess((sample_image_rgb, sample_image_rgb))

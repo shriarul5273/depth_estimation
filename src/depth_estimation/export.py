@@ -47,16 +47,34 @@ Known limitations:
       regardless of ``opset_version``. Upgrade torch if you hit this.
       ``depth-anything-v2`` and ``depth-pro`` are unaffected (they use an
       older manual-attention implementation).
+    - Stereo models (``s2m2-*``, ``config.is_stereo``) export with two
+      inputs, ``left`` and ``right`` (each ``(B, 3, H, W)``, normalised like
+      the processor does), and output ``depth`` = left-view disparity
+      ``(B, H, W)``. ``dynamic_spatial`` is not supported for them: padding,
+      positional encodings and the cost volume are sized from the traced
+      resolution, so export one graph per input size (as upstream does).
 """
 
 import inspect
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 import torch
 
 logger = logging.getLogger(__name__)
+
+
+class _StereoExportWrapper(torch.nn.Module):
+    """Expose a stereo model's ``forward(pixel_values (B, 6, H, W))`` as
+    ``forward(left, right)`` so the ONNX graph has two named image inputs."""
+
+    def __init__(self, model: torch.nn.Module):
+        super().__init__()
+        self.model = model
+
+    def forward(self, left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+        return self.model(torch.cat([left, right], dim=1))
 
 # torch.onnx.export's `dynamo` kwarg didn't exist before ~torch 2.5, and its
 # *default* value flipped from False to True in later releases. Pin it to
@@ -135,6 +153,16 @@ def export_onnx(
             "a graph with zero declared inputs). Not supported."
         )
 
+    is_stereo = getattr(getattr(model, "config", None), "is_stereo", False) is True
+    if is_stereo and dynamic_spatial:
+        raise ValueError(
+            f"dynamic_spatial is not supported for stereo model "
+            f"{type(model).__name__}: its padding, positional encodings and "
+            "cost volume are sized from the traced resolution. Export one "
+            "graph per input size instead (input_size must be a multiple "
+            "of 32)."
+        )
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -143,9 +171,44 @@ def export_onnx(
     # onnx_compatible_mode flag that swaps out ops with no ONNX symbolic
     # mapping at the current opset (e.g. antialiased bicubic/bilinear
     # resize — aten::_upsample_{bicubic,bilinear}2d_aa) for an exportable
-    # equivalent. Harmless no-op for every model that doesn't define it.
-    if hasattr(model, "onnx_compatible_mode"):
+    # equivalent; S2M2 uses it to trace without autocast. Harmless no-op
+    # for every model that doesn't define it. Restored afterwards so the
+    # PyTorch model keeps its normal behaviour once the export is done.
+    has_mode = hasattr(model, "onnx_compatible_mode")
+    prev_mode = getattr(model, "onnx_compatible_mode", None)
+    if has_mode:
         model.onnx_compatible_mode = True
+    try:
+        return _trace_and_export(
+            model,
+            output_path,
+            is_stereo=is_stereo,
+            input_size=input_size,
+            opset_version=opset_version,
+            dynamic_batch=dynamic_batch,
+            dynamic_spatial=dynamic_spatial,
+            verify=verify,
+            atol=atol,
+            rtol=rtol,
+        )
+    finally:
+        if has_mode:
+            model.onnx_compatible_mode = prev_mode
+
+
+def _trace_and_export(
+    model: torch.nn.Module,
+    output_path: Path,
+    is_stereo: bool,
+    input_size: int,
+    opset_version: int,
+    dynamic_batch: bool,
+    dynamic_spatial: bool,
+    verify: bool,
+    atol: float,
+    rtol: float,
+) -> Path:
+    """Body of :func:`export_onnx` once ``model`` is in export mode."""
     # Prefer BaseDepthModel.device: some families (DepthPro,
     # PixelPerfectDepth) have no parameters at all until their lazily-built
     # network exists, so next(model.parameters()) raises StopIteration
@@ -167,6 +230,14 @@ def export_onnx(
     except StopIteration:
         dtype = torch.float32
     dummy_input = torch.randn(1, 3, input_size, input_size, device=device, dtype=dtype)
+    if is_stereo:
+        dummy_inputs = (dummy_input, torch.randn_like(dummy_input))
+        trace_model = _StereoExportWrapper(model).eval()
+        input_names = ["left", "right"]
+    else:
+        dummy_inputs = (dummy_input,)
+        trace_model = model
+        input_names = ["pixel_values"]
 
     # Warm-up: some model families (DepthPro, PixelPerfectDepth) lazily
     # build their network on the *first* forward() call rather than in
@@ -176,7 +247,7 @@ def export_onnx(
     # eagerly beforehand forces that lazy init to already be done, which is
     # harmless (idempotent) for every model family, not just the lazy ones.
     with torch.no_grad():
-        model(dummy_input)
+        trace_model(*dummy_inputs)
 
     dynamic_axes = {}
     if dynamic_batch or dynamic_spatial:
@@ -190,7 +261,8 @@ def export_onnx(
             in_axes[3] = "width"
             out_axes[1] = "height"
             out_axes[2] = "width"
-        dynamic_axes = {"pixel_values": in_axes, "depth": out_axes}
+        dynamic_axes = {name: in_axes for name in input_names}
+        dynamic_axes["depth"] = out_axes
 
     export_kwargs = {}
     if _ONNX_EXPORT_SUPPORTS_DYNAMO:
@@ -198,10 +270,10 @@ def export_onnx(
 
     with torch.no_grad():
         torch.onnx.export(
-            model,
-            (dummy_input,),
+            trace_model,
+            dummy_inputs,
             str(output_path),
-            input_names=["pixel_values"],
+            input_names=input_names,
             output_names=["depth"],
             opset_version=opset_version,
             dynamic_axes=dynamic_axes or None,
@@ -238,7 +310,7 @@ def export_onnx(
 
     if verify:
         _verify_onnx_export(
-            model, output_path, dummy_input=dummy_input, atol=atol, rtol=rtol
+            trace_model, output_path, dummy_input=dummy_inputs, atol=atol, rtol=rtol
         )
 
     return output_path
@@ -247,14 +319,17 @@ def export_onnx(
 def _verify_onnx_export(
     model: torch.nn.Module,
     onnx_path: Union[str, Path],
-    dummy_input: torch.Tensor,
+    dummy_input: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
     atol: float = 1e-3,
     rtol: float = 1e-3,
 ) -> None:
     """Run ``dummy_input`` through both PyTorch and the exported ONNX graph
     and assert the outputs match. Raises ImportError if onnxruntime (an
     optional dependency, not required for export itself) isn't installed.
+    ``dummy_input`` is a tensor, or a tuple of tensors (one per graph input,
+    in order) for multi-input graphs such as stereo models.
     """
+    inputs = dummy_input if isinstance(dummy_input, tuple) else (dummy_input,)
     try:
         import numpy as np
         import onnxruntime as ort
@@ -276,13 +351,16 @@ def _verify_onnx_export(
     torch.backends.cudnn.allow_tf32 = False
     try:
         with torch.no_grad():
-            torch_out = model(dummy_input).cpu().numpy()
+            torch_out = model(*inputs).float().cpu().numpy()
     finally:
         torch.backends.cudnn.allow_tf32 = prev_tf32
 
     sess = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
-    input_name = sess.get_inputs()[0].name
-    onnx_out = sess.run(None, {input_name: dummy_input.cpu().numpy()})[0]
+    feeds = {
+        graph_input.name: tensor.cpu().numpy()
+        for graph_input, tensor in zip(sess.get_inputs(), inputs)
+    }
+    onnx_out = sess.run(None, feeds)[0]
 
     np.testing.assert_allclose(
         torch_out,

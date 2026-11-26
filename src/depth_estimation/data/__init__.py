@@ -35,6 +35,18 @@ kitti_eigen    No              Outdoor. Requires registration. Split file
                                auto-downloaded from BTS repo.
 folder         N/A             Generic paired RGB + depth directories.
 =============  ==============  ==============================================
+
+Stereo datasets (for stereo models such as S2M2) return ``pixel_values``
+``(6, H, W)`` (left + right), ``disparity`` and ``valid_mask`` instead —
+see :mod:`depth_estimation.data.stereo`:
+
+================  ==============  =============================================
+Name              Auto-download   Notes
+================  ==============  =============================================
+middlebury_2014   Yes (Q: 44 MB)  MiddEval3 training scenes, Q / H / F.
+kitti_2015        No              KITTI 2015 stereo, 200 training pairs.
+stereo_folder     N/A             left_dir / right_dir / disparity_dir.
+================  ==============  =============================================
 """
 
 from __future__ import annotations
@@ -48,6 +60,14 @@ from .kitti import KITTIEigenDataset
 from .diode import DIODEDataset
 from . import transforms
 from .transforms import get_train_transforms, get_val_transforms, Compose, PairedResize
+from .stereo import (
+    BaseStereoDataset,
+    KITTI2015Dataset,
+    Middlebury2014Dataset,
+    StereoFolderDataset,
+    get_stereo_train_transforms,
+    get_stereo_val_transforms,
+)
 
 __all__ = [
     "load_dataset",
@@ -61,6 +81,12 @@ __all__ = [
     "get_val_transforms",
     "Compose",
     "PairedResize",
+    "BaseStereoDataset",
+    "Middlebury2014Dataset",
+    "KITTI2015Dataset",
+    "StereoFolderDataset",
+    "get_stereo_train_transforms",
+    "get_stereo_val_transforms",
 ]
 
 _REGISTRY = {
@@ -68,6 +94,9 @@ _REGISTRY = {
     "kitti_eigen": KITTIEigenDataset,
     "diode": DIODEDataset,
     "folder": FolderDataset,
+    "middlebury_2014": Middlebury2014Dataset,
+    "kitti_2015": KITTI2015Dataset,
+    "stereo_folder": StereoFolderDataset,
 }
 
 
@@ -114,14 +143,14 @@ def load_dataset(
     # Build kwargs for each dataset class
     init_kwargs: dict[str, Any] = {"transform": transform}
 
-    if name == "folder":
-        # FolderDataset uses image_dir / depth_dir, not root / split / download
+    if name in ("folder", "stereo_folder"):
+        # Folder datasets take their directories, not root / split / download
         init_kwargs.update(kwargs)
     else:
         init_kwargs["split"] = split
         if root is not None:
             init_kwargs["root"] = root
-        if name != "kitti_eigen":
+        if name not in ("kitti_eigen", "kitti_2015"):
             init_kwargs["download"] = download
         init_kwargs.update(kwargs)
 

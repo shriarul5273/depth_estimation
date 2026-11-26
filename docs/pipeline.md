@@ -46,7 +46,7 @@ pipe(
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `images` | `str`, `PIL.Image`, `np.ndarray`, or `list` | **required** | Single image or list. Accepts file paths, URLs, PIL images, or NumPy arrays. |
+| `images` | `str`, `PIL.Image`, `np.ndarray`, `tuple`, or `list` | **required** | Single image or list. Accepts file paths, URLs, PIL images, or NumPy arrays. For stereo models (S2M2), each sample is a `(left, right)` tuple of rectified images. |
 | `batch_size` | `int` | `1` | Number of images processed per forward pass. |
 | `colorize` | `bool` | `True` | Whether to generate a colormapped RGB visualization. |
 | `colormap` | `str` | `"Spectral_r"` | Any Matplotlib colormap name (e.g. `"inferno"`, `"viridis"`). |

@@ -26,6 +26,7 @@ class TestModelRegistry:
             "moge",
             "vggt",
             "omnivggt",
+            "s2m2",
         ]
         for t in expected_types:
             assert t in types, f"{t} not registered"
@@ -77,6 +78,11 @@ class TestModelRegistry:
             "vggt-commercial",
             # omnivggt (1 variant)
             "omnivggt",
+            # s2m2 (4 variants, stereo)
+            "s2m2-s",
+            "s2m2-m",
+            "s2m2-l",
+            "s2m2-xl",
         ]
         for v in expected:
             assert v in variants, f"{v} not registered"
@@ -108,6 +114,7 @@ class TestModelRegistry:
             == "depth-anything-v3"
         )
         assert MODEL_REGISTRY.resolve_model_type("marigold-dc") == "marigold-dc"
+        assert MODEL_REGISTRY.resolve_model_type("s2m2-xl") == "s2m2"
 
     def test_resolve_unknown(self):
         with pytest.raises(ValueError, match="Unknown model identifier"):
@@ -136,6 +143,8 @@ class TestAutoDepthModel:
             ("vggt", "VGGTModel"),
             ("vggt-commercial", "VGGTModel"),
             ("omnivggt", "OmniVGGTModel"),
+            ("s2m2-s", "S2M2Model"),
+            ("s2m2-xl", "S2M2Model"),
         ],
     )
     def test_resolves_correct_class(self, variant_id, expected_class):
@@ -173,12 +182,20 @@ class TestAutoProcessor:
             "vggt",
             "vggt-commercial",
             "omnivggt",
+            "s2m2-s",
+            "s2m2-xl",
         ],
     )
     def test_returns_processor(self, variant_id):
         """AutoProcessor should return a DepthProcessor for all variants."""
         processor = AutoProcessor.from_pretrained(variant_id)
         assert isinstance(processor, DepthProcessor)
+
+    def test_s2m2_processor_is_stereo(self):
+        processor = AutoProcessor.from_pretrained("s2m2-l")
+        assert processor.is_stereo
+        assert processor.patch_size == 32
+        assert processor.mean == processor.std == [0.5, 0.5, 0.5]
 
     def test_cannot_instantiate(self):
         with pytest.raises(RuntimeError):

@@ -27,6 +27,8 @@ Seven standard metrics are computed over valid pixels (pixels where ground-truth
 | `delta2` | same, threshold 1.25² | [0, 1] | higher ↑ |
 | `delta3` | same, threshold 1.25³ | [0, 1] | higher ↑ |
 
+Stereo models are scored on disparity instead (`epe`, `bad1`–`bad3`, `d1`) on stereo datasets; see the [stereo guide](stereo.md#evaluation).
+
 All formulas follow Eigen et al. \[1\] and are used in virtually every depth estimation paper. The threshold accuracy metrics (δ < 1.25, 1.25², 1.25³) were further standardised in Eigen & Fergus \[2\].
 
 ---

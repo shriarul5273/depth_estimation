@@ -1,6 +1,6 @@
 # Supported Models
 
-14 model families · 36 variants
+15 model families · 40 variants
 
 **Column key:**
 - **Inference** — `model.predict()` / `pipeline()` / CLI predict
@@ -158,6 +158,50 @@ direct LoRA parameter manipulation.
 
 ⁴ Gated on Hugging Face — downloading requires a logged-in `huggingface-hub` session that has accepted the repo's license at its Hugging Face page (set `HF_TOKEN`, or run `huggingface-cli login`). Without this, loading raises `GatedRepoError` (401 Unauthorized). Confirmed: this is the only variant of the 28 that fails in this package's own scheduled slow-test CI run, precisely because that runner has no such login configured.
 
+## S2M2 (Stereo)
+
+S2M2 (ICCV 2025) is a **stereo** model: it takes a rectified left/right pair
+and predicts the left view's disparity, plus occlusion and confidence maps.
+The network is ported into a single self-contained file. With the same
+inputs, its outputs are identical to the reference implementation in float32
+and float16.
+
+| Variant ID | Channels | Transformers | Params | Source | Inference | CLI | Trainable |
+|---|---|---|---|---|:---:|:---:|:---:|
+| `s2m2-s` | 128 | 1 | 26.5M | `minimok/s2m2` (`CH128NTR1.pth`) | ✅ | ✅ | ✅ |
+| `s2m2-m` | 192 | 2 | 80.5M | `minimok/s2m2` (`CH192NTR2.pth`) | ✅ | ✅ | ✅ |
+| `s2m2-l` | 256 | 3 | 181M | `minimok/s2m2` (`CH256NTR3.pth`) | ✅ | ✅ | ✅ |
+| `s2m2-xl` | 384 | 3 | 406M | `minimok/s2m2` (`CH384NTR3.pth`) | ✅ | ✅ | ✅ |
+
+Code and weights are released under **CC BY-NC 4.0** (non-commercial use only).
+
+Pass each sample to the pipeline as a `(left, right)` tuple. `forward()` /
+`pipeline()` return disparity, which is inverse depth (larger = closer), so the
+pipeline treats it as relative depth. The processor resizes both views
+identically (shorter side `input_size`, default 512, multiple of 32). For
+native-resolution disparity and metric depth, call `infer()`:
+
+```python
+from depth_estimation import pipeline
+
+pipe = pipeline("depth-estimation", model="s2m2-l")
+result = pipe(("left.png", "right.png"))   # DepthOutput, relative depth
+
+out = pipe.model.infer("left.png", "right.png",
+                       focal_length_px=1000.0, baseline=0.12)  # your rig's values
+out["disparity"]    # (H, W) pixels at native resolution
+out["depth"]        # baseline * f / (disparity + doffs), inf where <= 0
+out["occlusion"]    # 0 = occluded, 1 = visible in both views
+out["confidence"]   # probability the disparity error is under 4 px
+```
+
+`config.allow_negative=True` permits negative disparity for imperfectly
+rectified pairs, `config.refine_iter` sets the number of refinement steps
+(default 3), and `config.precision` defaults to float16 on CUDA, as upstream.
+
+Stereo video, Middlebury / KITTI 2015 evaluation, fine-tuning, ONNX export
+and quantization are covered in the [stereo guide](stereo.md).
+
 ---
 
 ## Citations
@@ -178,3 +222,4 @@ direct LoRA parameter manipulation.
 | **MoGe** | [github.com/microsoft/MoGe](https://github.com/microsoft/MoGe) |
 | **VGGT** | [github.com/facebookresearch/vggt](https://github.com/facebookresearch/vggt) |
 | **OmniVGGT** | [github.com/Livioni/OmniVGGT](https://github.com/Livioni/OmniVGGT) |
+| **S2M2** | [github.com/junhong-3dv/s2m2](https://github.com/junhong-3dv/s2m2) |

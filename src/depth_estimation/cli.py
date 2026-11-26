@@ -105,6 +105,12 @@ def _run_predict(args: argparse.Namespace) -> None:
     output_arg = args.output
     output_dir = args.output_dir
 
+    # ---- Stereo branch (left/right pair, or one packed sbs/tab source) ----
+    if getattr(args, "right", None) or getattr(args, "stereo_layout", None):
+        _run_predict_stereo(args)
+        return
+    _check_not_stereo(model_id)
+
     # ---- Video branch ----
     src_path = Path(source)
     if src_path.is_file() and src_path.suffix.lower() in VIDEO_EXTENSIONS:
@@ -156,6 +162,98 @@ def _run_predict(args: argparse.Namespace) -> None:
                 print(
                     f"  [{i + batch_paths.index(path) + 1}/{total}] {path.name} -> {saved}"
                 )
+
+
+def _check_not_stereo(model_id: str) -> None:
+    """Stop early, with a hint, when a stereo model gets a single image."""
+    from depth_estimation.registry import MODEL_REGISTRY
+
+    try:
+        config_cls = MODEL_REGISTRY.get_config_cls(model_id)
+    except ValueError:
+        return  # unknown id: let pipeline() report it as usual
+    if getattr(config_cls, "from_variant", None):
+        try:
+            config = config_cls.from_variant(model_id)
+        except (ValueError, KeyError):
+            config = config_cls()
+    else:
+        config = config_cls()
+    if getattr(config, "is_stereo", False) is True:
+        _die(
+            f"'{model_id}' is a stereo model: pass the left image or video as "
+            "SOURCE and the right one with --right, or a single side-by-side / "
+            "top-and-bottom source with --stereo-layout sbs|tab."
+        )
+
+
+def _run_predict_stereo(args: argparse.Namespace) -> None:
+    """Predict from one stereo pair (image or video).
+
+    SOURCE is the left view and ``--right`` the right one, or SOURCE packs
+    both views and ``--stereo-layout`` says how (``sbs`` / ``tab``).
+    """
+    if args.right and args.stereo_layout:
+        _die("Use either --right or --stereo-layout, not both.")
+    left = Path(args.source)
+    right = Path(args.right) if args.right else None
+    for p in (left, right):
+        if p is not None and not p.is_file():
+            _die(f"Stereo input not found: {p}")
+
+    if not args.quiet:
+        print(f"Loading model: {args.model}")
+
+    from depth_estimation import pipeline as _pipeline
+
+    pipe = _pipeline("depth-estimation", model=args.model, device=args.device)
+
+    if left.suffix.lower() in VIDEO_EXTENSIONS:
+        out_video = (
+            Path(args.output) if args.output else left.parent / (left.stem + "_depth.mp4")
+        )
+        source = (str(left), str(right)) if right else str(left)
+        pipe.process_video(
+            source,
+            str(out_video),
+            colormap=args.colormap,
+            side_by_side=True,
+            stereo_layout=args.stereo_layout,
+        )
+        if not args.quiet:
+            print(f"Saved: {out_video}")
+        return
+
+    if right is not None:
+        pair = (str(left), str(right))
+    else:
+        import cv2
+        import numpy as np
+
+        from depth_estimation.video import split_stereo_frame
+
+        packed = cv2.imread(str(left))
+        if packed is None:
+            _die(f"Could not read image: {left}")
+        packed = cv2.cvtColor(packed, cv2.COLOR_BGR2RGB)
+        pair = tuple(
+            np.ascontiguousarray(v) for v in split_stereo_frame(packed, args.stereo_layout)
+        )
+    result = pipe(
+        pair,
+        colorize=(args.format in ("png", "both")),
+        colormap=args.colormap,
+    )
+    out_path = _resolve_output_path(left, args.output, args.output_dir)
+    _save_result(result, out_path, args.format, source_path=left)
+    if not args.quiet:
+        saved = (
+            out_path.with_suffix(".png")
+            if args.format in ("png", "both")
+            else out_path.with_suffix(".npy")
+        )
+        inputs = f"{left.name} + {right.name}" if right else left.name
+        print(f"  {inputs} -> {saved}")
 
 
 def _run_predict_video(
@@ -389,7 +487,18 @@ _COMPARE_MODELS = [
     "midas-dpt-large",
 ]
 
-_DATASET_CHOICES = ["nyu_depth_v2", "nyu", "kitti_eigen", "kitti", "diode"]
+_DATASET_CHOICES = [
+    "nyu_depth_v2",
+    "nyu",
+    "kitti_eigen",
+    "kitti",
+    "diode",
+    # stereo (for stereo models such as s2m2-*)
+    "middlebury_2014",
+    "middlebury",
+    "kitti_2015",
+]
+_STEREO_DATASETS = {"middlebury_2014", "middlebury", "kitti_2015"}
 
 
 def _run_evaluate(args: argparse.Namespace) -> None:
@@ -407,10 +516,24 @@ def _run_evaluate(args: argparse.Namespace) -> None:
         dataset_kwargs["scene_type"] = args.scene_type
     if args.max_depth is not None:
         dataset_kwargs["max_depth"] = args.max_depth
+    if dataset in _STEREO_DATASETS:
+        if args.occlusion is not None:
+            dataset_kwargs["occlusion"] = args.occlusion
+        if args.resolution is not None:
+            if dataset == "kitti_2015":
+                _die("--resolution only applies to Middlebury.")
+            dataset_kwargs["resolution"] = args.resolution
+    elif args.occlusion is not None or args.resolution is not None:
+        _die("--occlusion and --resolution only apply to stereo datasets.")
 
     # ── Compare mode ──────────────────────────────────────────────────────────
     if args.compare:
-        models = args.compare_models or _COMPARE_MODELS
+        default_models = (
+            ["s2m2-s", "s2m2-m", "s2m2-l", "s2m2-xl"]
+            if dataset in _STEREO_DATASETS
+            else _COMPARE_MODELS
+        )
+        models = args.compare_models or default_models
         if not args.quiet:
             print(f"\nComparing {len(models)} models on {dataset} ({args.split})")
             if dataset_kwargs:
@@ -477,15 +600,19 @@ def _run_evaluate(args: argparse.Namespace) -> None:
     print(f"{'─' * 55}")
     print(f"  {'Metric':<14}  {'Value':>10}  Direction")
     print(f"  {'──────':<14}  {'─────':>10}  ─────────")
-    for metric, direction in [
-        ("abs_rel", "lower ↓"),
-        ("sq_rel", "lower ↓"),
-        ("rmse", "lower ↓"),
-        ("rmse_log", "lower ↓"),
-        ("delta1", "higher ↑"),
-        ("delta2", "higher ↑"),
-        ("delta3", "higher ↑"),
-    ]:
+    if "epe" in results:
+        metric_rows = [(m, "lower ↓") for m in ("epe", "bad1", "bad2", "bad3", "d1")]
+    else:
+        metric_rows = [
+            ("abs_rel", "lower ↓"),
+            ("sq_rel", "lower ↓"),
+            ("rmse", "lower ↓"),
+            ("rmse_log", "lower ↓"),
+            ("delta1", "higher ↑"),
+            ("delta2", "higher ↑"),
+            ("delta3", "higher ↑"),
+        ]
+    for metric, direction in metric_rows:
         print(f"  {metric:<14}  {results[metric]:>10.4f}  {direction}")
     print(f"{'─' * 55}")
     print(f"  Samples : {results.get('n_samples', '?')}")
@@ -560,6 +687,20 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["png", "npy", "both"],
         default="png",
         help="Output format: png (colored), npy (raw float32), or both (default: png).",
+    )
+    p_predict.add_argument(
+        "--right",
+        default=None,
+        metavar="RIGHT_IMAGE",
+        help="Right image or video of a rectified stereo pair, for stereo "
+        "models (e.g. s2m2-l). SOURCE is then the left one.",
+    )
+    p_predict.add_argument(
+        "--stereo-layout",
+        choices=["sbs", "tab"],
+        default=None,
+        help="For stereo models: SOURCE is one image or video holding both "
+        "views, side by side (sbs, left | right) or top and bottom (tab).",
     )
     p_predict.add_argument(
         "--batch-size",
@@ -708,6 +849,19 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="M",
         help="Maximum valid depth in metres.",
+    )
+    p_eval.add_argument(
+        "--occlusion",
+        choices=["all", "noc"],
+        default=None,
+        help="Stereo datasets: evaluate all pixels with ground truth (default) "
+        "or only non-occluded ones.",
+    )
+    p_eval.add_argument(
+        "--resolution",
+        choices=["Q", "H", "F"],
+        default=None,
+        help="Middlebury 2014 resolution: Q (quarter, default), H (half) or F (full).",
     )
     p_eval.add_argument(
         "--output",
