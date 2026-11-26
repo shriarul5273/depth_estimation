@@ -54,6 +54,9 @@ class DepthPipeline:
 
         Args:
             images: Single image or list. Accepts paths, URLs, PIL, ndarray.
+                For stereo models (S2M2), each sample is a ``(left, right)``
+                tuple of rectified images: ``pipe(("left.png", "right.png"))``
+                or a list of such tuples.
             batch_size: Batch size for processing multiple images.
             colorize: Whether to produce a colored depth visualization.
             colormap: Matplotlib colormap name for visualization.

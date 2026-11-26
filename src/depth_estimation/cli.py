@@ -105,6 +105,12 @@ def _run_predict(args: argparse.Namespace) -> None:
     output_arg = args.output
     output_dir = args.output_dir
 
+    # ---- Stereo branch (one rectified left/right pair) ----
+    if getattr(args, "right", None):
+        _run_predict_stereo(args)
+        return
+    _check_not_stereo(model_id)
+
     # ---- Video branch ----
     src_path = Path(source)
     if src_path.is_file() and src_path.suffix.lower() in VIDEO_EXTENSIONS:
@@ -156,6 +162,57 @@ def _run_predict(args: argparse.Namespace) -> None:
                 print(
                     f"  [{i + batch_paths.index(path) + 1}/{total}] {path.name} -> {saved}"
                 )
+
+
+def _check_not_stereo(model_id: str) -> None:
+    """Stop early, with a hint, when a stereo model gets a single image."""
+    from depth_estimation.registry import MODEL_REGISTRY
+
+    try:
+        config_cls = MODEL_REGISTRY.get_config_cls(model_id)
+    except ValueError:
+        return  # unknown id: let pipeline() report it as usual
+    if getattr(config_cls, "from_variant", None):
+        try:
+            config = config_cls.from_variant(model_id)
+        except (ValueError, KeyError):
+            config = config_cls()
+    else:
+        config = config_cls()
+    if getattr(config, "is_stereo", False):
+        _die(
+            f"'{model_id}' is a stereo model: pass the left image as SOURCE "
+            "and the right image with --right RIGHT_IMAGE."
+        )
+
+
+def _run_predict_stereo(args: argparse.Namespace) -> None:
+    """Predict from a single stereo pair: SOURCE is the left image."""
+    left, right = Path(args.source), Path(args.right)
+    for p in (left, right):
+        if not p.is_file():
+            _die(f"Stereo image not found: {p}")
+
+    if not args.quiet:
+        print(f"Loading model: {args.model}")
+
+    from depth_estimation import pipeline as _pipeline
+
+    pipe = _pipeline("depth-estimation", model=args.model, device=args.device)
+    result = pipe(
+        (str(left), str(right)),
+        colorize=(args.format in ("png", "both")),
+        colormap=args.colormap,
+    )
+    out_path = _resolve_output_path(left, args.output, args.output_dir)
+    _save_result(result, out_path, args.format, source_path=left)
+    if not args.quiet:
+        saved = (
+            out_path.with_suffix(".png")
+            if args.format in ("png", "both")
+            else out_path.with_suffix(".npy")
+        )
+        print(f"  {left.name} + {right.name} -> {saved}")
 
 
 def _run_predict_video(
@@ -560,6 +617,13 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["png", "npy", "both"],
         default="png",
         help="Output format: png (colored), npy (raw float32), or both (default: png).",
+    )
+    p_predict.add_argument(
+        "--right",
+        default=None,
+        metavar="RIGHT_IMAGE",
+        help="Right image of a rectified stereo pair, for stereo models "
+        "(e.g. s2m2-l). SOURCE is then the left image.",
     )
     p_predict.add_argument(
         "--batch-size",

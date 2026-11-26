@@ -53,6 +53,10 @@ class DepthProcessor:
         # False — confirmed they crash on a non-square resize (their HF
         # backbone hardcodes a square patch grid internally).
         self.keep_aspect_ratio = getattr(config, "keep_aspect_ratio", True)
+        # Stereo models (S2M2) take a rectified (left, right) pair per sample
+        # instead of a single image; see preprocess().
+        self.is_stereo = getattr(config, "is_stereo", False)
+        self._model_type = getattr(config, "model_type", "base")
 
     @classmethod
     def from_config(cls, config: BaseDepthConfig) -> "DepthProcessor":
@@ -76,11 +80,14 @@ class DepthProcessor:
                 - A URL (str starting with http)
                 - A PIL Image
                 - A NumPy array (H, W, 3), BGR or RGB
+                For stereo models, each sample is instead a ``(left, right)``
+                tuple of two such images (the same size, rectified).
             return_tensors: Return format, currently only "pt" (PyTorch).
 
         Returns:
             Dictionary with:
-                - "pixel_values": Tensor of shape (B, 3, H, W)
+                - "pixel_values": Tensor of shape (B, 3, H, W), or
+                  (B, 6, H, W) for stereo pairs (left RGB then right RGB)
                 - "original_sizes": List of (H, W) tuples
         """
         if not isinstance(images, list):
@@ -90,9 +97,18 @@ class DepthProcessor:
         original_sizes = []
 
         for image in images:
-            img = self._load_image(image)
+            if self.is_stereo:
+                img, tensor = self._transform_pair(image)
+            else:
+                if isinstance(image, tuple):
+                    raise TypeError(
+                        f"Got a tuple, but '{self._model_type}' is a monocular "
+                        "model: pass a single image per sample. (left, right) "
+                        "tuples are only for stereo models such as S2M2."
+                    )
+                img = self._load_image(image)
+                tensor = self._transform(img)
             original_sizes.append((img.shape[0], img.shape[1]))
-            tensor = self._transform(img)
             pixel_values_list.append(tensor)
 
         pixel_values = torch.cat(pixel_values_list, dim=0)
@@ -213,6 +229,30 @@ class DepthProcessor:
             data = response.read()
         img = Image.open(io.BytesIO(data)).convert("RGB")
         return np.array(img)
+
+    def _transform_pair(self, pair) -> Tuple[np.ndarray, torch.Tensor]:
+        """Load and transform a stereo ``(left, right)`` pair.
+
+        Both views get the identical resize, which scales disparity uniformly
+        and keeps rectified rows aligned. Returns the loaded left image (for
+        its original size) and a ``(1, 6, H, W)`` tensor.
+        """
+        if not (isinstance(pair, tuple) and len(pair) == 2):
+            raise TypeError(
+                f"'{self._model_type}' is a stereo model: pass each sample as "
+                "a (left, right) tuple of rectified images, e.g. "
+                "pipe(('left.png', 'right.png')). "
+                f"Got {type(pair).__name__}."
+            )
+        left = self._load_image(pair[0])
+        right = self._load_image(pair[1])
+        if left.shape != right.shape:
+            raise ValueError(
+                f"Stereo left and right images must be the same size, got "
+                f"{left.shape[:2]} and {right.shape[:2]}."
+            )
+        tensor = torch.cat([self._transform(left), self._transform(right)], dim=1)
+        return left, tensor
 
     def _transform(self, image_rgb: np.ndarray) -> torch.Tensor:
         """Apply resize + normalize + convert to tensor.

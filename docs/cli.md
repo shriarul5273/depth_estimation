@@ -78,6 +78,7 @@ depth-estimate predict SOURCE --model MODEL [OPTIONS]
 | `--format` | No | Output format: `png` (default), `npy`, or `both`. |
 | `--colormap` | No | Matplotlib colormap name (default: `Spectral_r`). |
 | `--batch-size` | No | Number of images to process per forward pass (default: `1`). |
+| `--right` | No | Right image of a rectified stereo pair. Required for stereo models (`s2m2-*`), which then treat `SOURCE` as the left image. |
 
 #### Output formats
 
@@ -99,6 +100,9 @@ depth-estimate predict examples/demo.png --model depth-anything-v2-vitb --format
 
 # Batch (directory) — results written to output-dir
 depth-estimate predict images/ --model depth-anything-v2-vitb --output-dir results/ --batch-size 4
+
+# Stereo pair (S2M2) — SOURCE is the left image
+depth-estimate predict left.png --right right.png --model s2m2-l --format both
 
 # Batch (glob pattern) — quote the pattern to prevent shell expansion
 depth-estimate predict "photos/**/*.jpg" --model depth-anything-v2-vitb --output-dir depth_maps/
@@ -137,7 +141,7 @@ depth-anything-v2-vitb                depth-anything-v2         relative  vitb
 zoedepth                              zoedepth                  metric    zoedepth-nyu-kitti
 ...
 
-36 variants across 14 model families.
+40 variants across 15 model families.
 ```
 
 ---

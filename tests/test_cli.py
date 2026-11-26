@@ -256,6 +256,43 @@ class TestPredictCommand:
         assert fake_pipeline["device"] == "cpu"
 
 
+class TestPredictStereo:
+    def test_right_image_makes_a_pair(self, monkeypatch, tmp_path):
+        seen = {}
+
+        class _Recorder(_FakePipeline):
+            def __call__(self, images, **kwargs):
+                seen["images"] = images
+                return super().__call__(images, **kwargs)
+
+        monkeypatch.setattr(
+            "depth_estimation.pipeline", lambda task, model=None, device=None: _Recorder()
+        )
+        left, right = tmp_path / "l.png", tmp_path / "r.png"
+        left.write_bytes(b"fake")
+        right.write_bytes(b"fake")
+        _run_cli(monkeypatch, ["predict", str(left), "--right", str(right), "-m", "s2m2-s"])
+        assert seen["images"] == (str(left), str(right))
+        assert (tmp_path / "l_depth.png").exists()
+
+    def test_stereo_model_without_right_exits(self, monkeypatch, fake_pipeline, tmp_path, capsys):
+        img = tmp_path / "a.png"
+        img.write_bytes(b"fake")
+        with pytest.raises(SystemExit):
+            _run_cli(monkeypatch, ["predict", str(img), "--model", "s2m2-s"])
+        assert "--right" in capsys.readouterr().err
+        assert "model" not in fake_pipeline  # failed before loading anything
+
+    def test_missing_right_image_exits(self, monkeypatch, fake_pipeline, tmp_path):
+        img = tmp_path / "a.png"
+        img.write_bytes(b"fake")
+        with pytest.raises(SystemExit):
+            _run_cli(
+                monkeypatch,
+                ["predict", str(img), "--right", str(tmp_path / "nope.png"), "-m", "s2m2-s"],
+            )
+
+
 # --------------------------------------------------------------------- #
 # Argument parsing
 # --------------------------------------------------------------------- #

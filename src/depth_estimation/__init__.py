@@ -27,6 +27,7 @@ from .models import marigold_v2
 from .models import moge
 from .models import omnivggt
 from .models import vggt
+from .models import s2m2
 
 
 def load_dataset(

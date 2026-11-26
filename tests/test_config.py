@@ -28,6 +28,10 @@ from depth_estimation.models.depth_pro_2.configuration_depth_pro_2 import (
     DepthPro2Config,
     _DEPTHPRO2_VARIANT_MAP,
 )
+from depth_estimation.models.s2m2.configuration_s2m2 import (
+    S2M2Config,
+    _S2M2_VARIANT_MAP,
+)
 from depth_estimation.models.pixel_perfect_depth.configuration_ppd import (
     PixelPerfectDepthConfig,
 )
@@ -240,6 +244,48 @@ class TestDepthPro2Config:
     def test_roundtrip(self):
         config = DepthPro2Config.from_variant("depth-pro-2-l")
         restored = DepthPro2Config.from_dict(config.to_dict())
+        assert restored == config
+
+
+class TestS2M2Config:
+    def test_model_type(self):
+        config = S2M2Config()
+        assert config.model_type == "s2m2"
+        assert config.is_stereo is True
+        assert config.is_metric is False
+        assert config.patch_size == 32
+
+    @pytest.mark.parametrize(
+        "variant_id,channels,n_transformer,filename",
+        [
+            ("s2m2-s", 128, 1, "CH128NTR1.pth"),
+            ("s2m2-m", 192, 2, "CH192NTR2.pth"),
+            ("s2m2-l", 256, 3, "CH256NTR3.pth"),
+            ("s2m2-xl", 384, 3, "CH384NTR3.pth"),
+        ],
+    )
+    def test_from_variant(self, variant_id, channels, n_transformer, filename):
+        config = S2M2Config.from_variant(variant_id)
+        assert config.feature_channels == channels
+        assert config.num_transformer == n_transformer
+        assert config.hub_repo_id == "minimok/s2m2"
+        assert config.hub_filename == filename
+
+    def test_variant_count(self):
+        assert len(_S2M2_VARIANT_MAP) == 4
+
+    def test_normalises_to_minus_one_one(self):
+        # Upstream feeds (img / 255 - 0.5) * 2 to the network.
+        config = S2M2Config()
+        assert config.mean == config.std == [0.5, 0.5, 0.5]
+
+    def test_unknown_variant(self):
+        with pytest.raises(ValueError, match="Unknown S2M2 variant"):
+            S2M2Config.from_variant("s2m2-xxl")
+
+    def test_roundtrip(self):
+        config = S2M2Config.from_variant("s2m2-l")
+        restored = S2M2Config.from_dict(config.to_dict())
         assert restored == config
 
 
