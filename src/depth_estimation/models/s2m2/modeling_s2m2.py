@@ -1028,9 +1028,9 @@ class S2M2Model(BaseDepthModel):
     """
 
     config_class = S2M2Config
-    # forward() takes a 6-channel stereo pair; the generic exporter traces a
-    # 3-channel single image.
-    _onnx_exportable = False
+    # Set by export_onnx(): trace plain float32 (no autocast) so the graph
+    # has no mixed-precision casts.
+    onnx_compatible_mode = False
 
     def __init__(self, config: S2M2Config):
         super().__init__(config)
@@ -1045,6 +1045,22 @@ class S2M2Model(BaseDepthModel):
     @property
     def precision(self) -> torch.dtype:
         return _resolve_precision(self.config.precision, self.device)
+
+    def _compute_context(self, device: torch.device):
+        """Autocast context for the network.
+
+        Weights cast to float16/bfloat16 (e.g. by ``quantize_model``) need
+        autocast at that dtype: several ops (optimal transport, refiner
+        inputs) deliberately run in float32, as upstream, which only mixes
+        with reduced-precision weights under autocast.
+        """
+        if self.onnx_compatible_mode or self.training:
+            # Training follows the caller's autocast (DepthTrainer's
+            # mixed_precision) instead of forcing float16 without a scaler.
+            return nullcontext()
+        param_dtype = next(self.net.parameters()).dtype
+        dtype = param_dtype if param_dtype != torch.float32 else self.precision
+        return _autocast(device, dtype)
 
     # ------------------------------------------------------------------
     # Core prediction
@@ -1067,7 +1083,7 @@ class S2M2Model(BaseDepthModel):
         black = -mean / std
         left = _image_pad(left.to(self.device), black)
         right = _image_pad(right.to(self.device), black)
-        with _autocast(left.device, self.precision):
+        with self._compute_context(left.device):
             disp, occ, conf = self.net(left, right)
         return {
             "disparity": _image_crop(disp, (height, width))[:, 0].float(),
@@ -1168,12 +1184,33 @@ class S2M2Model(BaseDepthModel):
     # Training helpers
     # ------------------------------------------------------------------
 
+    def _backbone_stages(self) -> List[nn.Module]:
+        """Feature-matching stages, shallow to deep: CNN encoder, feature
+        pyramid, then each multi-resolution transformer block."""
+        return [
+            self.net.cnn_backbone,
+            self.net.feat_pyramid,
+            *self.net.transformer.uformer_list,
+        ]
+
     def _backbone_module(self) -> nn.Module:
-        raise NotImplementedError(
-            "S2M2 is a stereo model and DepthTrainer trains monocular models on "
-            "single-image datasets, so S2M2 fine-tuning is not supported. The "
-            "network (self.net) is a plain nn.Module if you want to train it "
-            "with your own stereo loop."
+        """The feature-matching backbone (everything before disparity
+        initialisation): CNN encoder, U-Net feature pyramid and stacked
+        multi-resolution transformer. The refiners and upsampling heads are
+        the "decoder" for ``freeze_backbone()`` / ``get_parameter_groups()``.
+        """
+        return nn.ModuleList(
+            [self.net.cnn_backbone, self.net.feat_pyramid, self.net.transformer]
+        )
+
+    def unfreeze_top_k_backbone_layers(self, k: int) -> None:
+        """Unfreeze the last ``k`` backbone stages (see :meth:`_backbone_stages`)."""
+        for stage in self._backbone_stages()[-k:] if k > 0 else []:
+            for param in stage.parameters():
+                param.requires_grad = True
+        logger.info(
+            f"Unfroze top {k} S2M2 backbone stages. "
+            f"Trainable params: {self._count_trainable():,}"
         )
 
     # ------------------------------------------------------------------

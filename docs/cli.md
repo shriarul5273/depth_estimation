@@ -78,7 +78,8 @@ depth-estimate predict SOURCE --model MODEL [OPTIONS]
 | `--format` | No | Output format: `png` (default), `npy`, or `both`. |
 | `--colormap` | No | Matplotlib colormap name (default: `Spectral_r`). |
 | `--batch-size` | No | Number of images to process per forward pass (default: `1`). |
-| `--right` | No | Right image of a rectified stereo pair. Required for stereo models (`s2m2-*`), which then treat `SOURCE` as the left image. |
+| `--right` | No | Right image or video of a rectified stereo pair, for stereo models (`s2m2-*`), which then treat `SOURCE` as the left one. |
+| `--stereo-layout` | No | `sbs` or `tab`: `SOURCE` is one image or video holding both views side by side or top and bottom. Stereo models need `--right` or this. |
 
 #### Output formats
 
@@ -200,7 +201,7 @@ depth-estimate export --model MODEL --output OUTPUT [OPTIONS]
 
 #### Verified working
 
-`depth-anything-v1/v2/v3`, `depth-pro`, `moge-v1`/`moge-v2-*` — numerically verified to match the PyTorch model.
+`depth-anything-v1/v2/v3`, `depth-pro`, `moge-v1`/`moge-v2-*`, `s2m2-*` — numerically verified to match the PyTorch model. Stereo models export with two inputs, `left` and `right`.
 
 #### Not exportable at all
 
@@ -239,7 +240,7 @@ depth-estimate evaluate --dataset DATASET [OPTIONS]
 | Flag | Default | Description |
 |---|---|---|
 | `--model` / `-m` | `depth-anything-v2-vitb` | Model variant ID. Ignored with `--compare`. |
-| `--dataset` / `-d` | **required** | `nyu_depth_v2` (alias `nyu`), `kitti_eigen` (alias `kitti`), or `diode`. |
+| `--dataset` / `-d` | **required** | `nyu_depth_v2` (alias `nyu`), `kitti_eigen` (alias `kitti`), or `diode`. For stereo models: `middlebury_2014` (alias `middlebury`) or `kitti_2015`. |
 | `--split` | `test` | Dataset split: `train`, `val`, or `test`. |
 | `--dataset-root` | auto | Local root directory. Auto-downloads where supported. |
 | `--compare` | off | Evaluate a preset list of models and print a comparison table. |
@@ -250,6 +251,8 @@ depth-estimate evaluate --dataset DATASET [OPTIONS]
 | `--no-align` | off | Disable alignment for relative models. |
 | `--scene-type` | `all` | DIODE only: `indoors`, `outdoors`, or `all`. |
 | `--max-depth M` | dataset default | Maximum valid depth in metres. |
+| `--occlusion` | `all` | Stereo datasets: `all` pixels with ground truth or `noc` (non-occluded only). |
+| `--resolution` | `Q` | Middlebury 2014: `Q`, `H` or `F`. |
 | `--output` / `-o` | none | Save results to a JSON file. |
 | `--json` | off | Print results as JSON instead of a table. |
 

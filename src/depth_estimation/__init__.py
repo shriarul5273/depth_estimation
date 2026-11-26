@@ -94,6 +94,21 @@ def __getattr__(name):
 
         globals()["BerHuLoss"] = BerHuLoss
         return BerHuLoss
+    if name == "DisparityLoss":
+        from .losses import DisparityLoss
+
+        globals()["DisparityLoss"] = DisparityLoss
+        return DisparityLoss
+    if name == "get_stereo_train_transforms":
+        from .data.stereo import get_stereo_train_transforms
+
+        globals()["get_stereo_train_transforms"] = get_stereo_train_transforms
+        return get_stereo_train_transforms
+    if name == "get_stereo_val_transforms":
+        from .data.stereo import get_stereo_val_transforms
+
+        globals()["get_stereo_val_transforms"] = get_stereo_val_transforms
+        return get_stereo_val_transforms
     if name == "get_train_transforms":
         from .data.transforms import get_train_transforms
 
@@ -175,6 +190,9 @@ __all__ = [
     "ScaleInvariantLoss",
     "GradientLoss",
     "BerHuLoss",
+    "DisparityLoss",
+    "get_stereo_train_transforms",
+    "get_stereo_val_transforms",
     "get_train_transforms",
     "get_val_transforms",
     # Video & streaming

@@ -144,6 +144,7 @@ All loss functions accept `(pred, target, valid_mask=None)` tensors of shape `(B
 | `GradientLoss(eps=1e-8)` | L1 loss on x/y finite differences of log-depth. Preserves depth edges. |
 | `BerHuLoss()` | Reverse Huber — L1 for small errors, L2 for large. Robust to metric depth outliers. |
 | `CombinedDepthLoss(si_weight, grad_weight, lam)` | Weighted SI-log + gradient. Returns a dict. |
+| `DisparityLoss(kind="smooth_l1", beta=1.0)` | Masked smooth-L1 / L1 on disparity in pixels, for stereo models. Used automatically by `DepthTrainer` for them (`disparity_loss` argument). Returns a dict. |
 
 `CombinedDepthLoss` usage:
 
@@ -296,6 +297,7 @@ trainer.train()
 | `pixel-perfect-depth` | — | raises `NotImplementedError` | `forward()` runs iterative diffusion sampling — not differentiable |
 | `zoedepth` | — | raises `NotImplementedError` | Wraps HF pipeline; no `nn.Module` parameters |
 | `marigold-dc` | — | raises `NotImplementedError` | Wraps diffusers pipeline; not directly trainable |
+| `s2m2-*` (stereo) | Feature matcher (CNN encoder + feature pyramid + transformer) | `ModuleList` of those | Trains on stereo datasets with `DisparityLoss` — see the [stereo guide](stereo.md#fine-tuning) |
 
 ---
 

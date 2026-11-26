@@ -34,7 +34,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .losses import CombinedDepthLoss
+from .evaluation.metrics import STEREO_METRICS
+from .losses import CombinedDepthLoss, DisparityLoss
 from .training_args import DepthTrainingArguments
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,11 @@ class DepthTrainer:
                        (use ``from_pretrained(..., for_training=True)``).
         args:          :class:`~depth_estimation.training_args.DepthTrainingArguments`.
         train_dataset: Dataset returning ``{"pixel_values", "depth_map", "valid_mask"}``.
+                       For stereo models (``model.config.is_stereo``, e.g. S2M2) a
+                       stereo dataset returning ``{"pixel_values", "disparity",
+                       "valid_mask"}`` (see :mod:`depth_estimation.data.stereo`);
+                       the loss is then :class:`~depth_estimation.losses.DisparityLoss`
+                       and validation reports disparity metrics.
         eval_dataset:  Validation dataset. Pass ``None`` to skip evaluation.
         processor:     Optional processor used only for logging purposes.
     """
@@ -84,7 +90,33 @@ class DepthTrainer:
         self.train_loader: Optional[DataLoader] = None
         self.eval_loader: Optional[DataLoader] = None
 
-        self.best_metric = float("inf") if args.lower_is_better else float("-inf")
+        # Stereo models train on disparity (pixels) rather than depth.
+        self.is_stereo = getattr(getattr(model, "config", None), "is_stereo", False) is True
+        self._target_key = "disparity" if self.is_stereo else "depth_map"
+        for name, ds in (("train_dataset", train_dataset), ("eval_dataset", eval_dataset)):
+            # Datasets that don't declare is_stereo (e.g. torch Subset) are trusted.
+            if hasattr(ds, "is_stereo") and (ds.is_stereo is True) != self.is_stereo:
+                kind = "stereo" if self.is_stereo else "monocular"
+                raise ValueError(
+                    f"{name} does not match the {kind} model: stereo models need a "
+                    "stereo dataset (pixel_values (6, H, W) + disparity) and "
+                    "monocular models a depth dataset."
+                )
+        self._eval_metric = args.eval_metric
+        self._lower_is_better = args.lower_is_better
+        if self.is_stereo and self._eval_metric not in STEREO_METRICS:
+            logger.info(
+                "eval_metric %r is a depth metric; using 'epe' for this stereo model.",
+                self._eval_metric,
+            )
+            self._eval_metric, self._lower_is_better = "epe", True
+        elif not self.is_stereo and self._eval_metric in STEREO_METRICS:
+            raise ValueError(
+                f"eval_metric {self._eval_metric!r} is a stereo metric, but the "
+                "model is monocular."
+            )
+
+        self.best_metric = float("inf") if self._lower_is_better else float("-inf")
         self.global_step = 0
 
     # ------------------------------------------------------------------
@@ -144,7 +176,7 @@ class DepthTrainer:
                 )
 
                 if self._is_plateau_scheduler and self.scheduler is not None:
-                    self.scheduler.step(eval_metrics[self.args.eval_metric])
+                    self.scheduler.step(eval_metrics[self._eval_metric])
 
             if (epoch + 1) % self.args.save_every_n_epochs == 0:
                 self._save_checkpoint(epoch)
@@ -250,7 +282,7 @@ class DepthTrainer:
             # ReduceLROnPlateau is stepped with the eval metric, not per epoch
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
-                mode="min" if self.args.lower_is_better else "max",
+                mode="min" if self._lower_is_better else "max",
                 factor=0.5,
                 patience=3,
             )
@@ -297,6 +329,9 @@ class DepthTrainer:
         self._is_plateau_scheduler = False
 
     def _build_loss(self) -> None:
+        if self.is_stereo:
+            self.loss_fn = DisparityLoss(kind=self.args.disparity_loss)
+            return
         self.loss_fn = CombinedDepthLoss(
             si_weight=self.args.si_loss_weight,
             grad_weight=self.args.grad_loss_weight,
@@ -311,7 +346,7 @@ class DepthTrainer:
         self.model.train()
         device_type = "cuda" if self.device.type == "cuda" else "cpu"
 
-        running = {"loss": 0.0, "si_loss": 0.0, "grad_loss": 0.0}
+        running: dict = {}
         n_steps = 0
 
         batch_bar = tqdm(
@@ -322,7 +357,7 @@ class DepthTrainer:
         )
         for batch in batch_bar:
             pixel_values = batch["pixel_values"].to(self.device, non_blocking=True)
-            depth_map = batch["depth_map"].to(self.device, non_blocking=True)
+            depth_map = batch[self._target_key].to(self.device, non_blocking=True)
             valid_mask = batch["valid_mask"].to(self.device, non_blocking=True)
 
             # Squeeze channel dim: (B,1,H,W) → (B,H,W)
@@ -355,8 +390,8 @@ class DepthTrainer:
                     )
                 self.optimizer.step()
 
-            for k in running:
-                running[k] += losses[k].item()
+            for k, v in losses.items():
+                running[k] = running.get(k, 0.0) + v.item()
             n_steps += 1
             self.global_step += 1
 
@@ -366,12 +401,15 @@ class DepthTrainer:
             )
 
             if self.global_step % self.args.log_every_n_steps == 0:
-                avg_si = running["si_loss"] / n_steps
-                avg_grad = running["grad_loss"] / n_steps
+                parts = " ".join(
+                    f"{k.removesuffix('_loss')}={v / n_steps:.4f}"
+                    for k, v in running.items()
+                    if k != "loss"
+                )
                 lr = self.optimizer.param_groups[0]["lr"]
                 logger.info(
                     f"Step {self.global_step} | epoch {epoch} | "
-                    f"loss={avg_loss:.4f} si={avg_si:.4f} grad={avg_grad:.4f} lr={lr:.2e}"
+                    f"loss={avg_loss:.4f} {parts} lr={lr:.2e}"
                 )
 
         n = max(1, n_steps)
@@ -385,14 +423,19 @@ class DepthTrainer:
         from .evaluation.metrics import Evaluator
 
         self.model.eval()
-        ev = Evaluator()
+        if self.is_stereo:
+            from .evaluation.metrics import StereoEvaluator
+
+            ev = StereoEvaluator()
+        else:
+            ev = Evaluator()
 
         with torch.no_grad():
             for batch in tqdm(
                 self.eval_loader, desc=f"Eval  {epoch}", unit="batch", leave=False
             ):
                 pixel_values = batch["pixel_values"].to(self.device, non_blocking=True)
-                depth_map = batch["depth_map"].to(self.device, non_blocking=True)
+                depth_map = batch[self._target_key].to(self.device, non_blocking=True)
                 valid_mask = batch["valid_mask"].to(self.device, non_blocking=True)
 
                 pred = self.model(pixel_values)
@@ -409,17 +452,17 @@ class DepthTrainer:
         metrics = ev.compute()
 
         # Track best checkpoint
-        metric_val = metrics[self.args.eval_metric]
+        metric_val = metrics[self._eval_metric]
         is_better = (
             metric_val < self.best_metric
-            if self.args.lower_is_better
+            if self._lower_is_better
             else metric_val > self.best_metric
         )
         if is_better:
             self.best_metric = metric_val
             self._save_checkpoint(epoch, tag="best_model")
             logger.info(
-                f"Epoch {epoch}: new best {self.args.eval_metric}={metric_val:.4f} "
+                f"Epoch {epoch}: new best {self._eval_metric}={metric_val:.4f} "
                 f"— saved best_model checkpoint."
             )
 

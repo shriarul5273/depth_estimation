@@ -48,6 +48,7 @@ Python 3.10–3.12 and PyTorch 2.6+ are supported; the core install includes eve
 | Load data, evaluate, or fine-tune | [Data](https://github.com/shriarul5273/depth_estimation/blob/main/docs/data.md) · [Evaluation](https://github.com/shriarul5273/depth_estimation/blob/main/docs/evaluation.md) · [Training](https://github.com/shriarul5273/depth_estimation/blob/main/docs/training.md) |
 | Prepare a model for deployment | [ONNX export](https://github.com/shriarul5273/depth_estimation/blob/main/docs/export.md) · [Pruning](https://github.com/shriarul5273/depth_estimation/blob/main/docs/pruning.md) · [Quantization](https://github.com/shriarul5273/depth_estimation/blob/main/docs/quantization.md) |
 | Use the command line | [CLI reference](https://github.com/shriarul5273/depth_estimation/blob/main/docs/cli.md) |
+| Stereo pairs, video, benchmarks and fine-tuning | [Stereo (S2M2)](https://github.com/shriarul5273/depth_estimation/blob/main/docs/stereo.md) |
 | Extend the library | [Adding a model](https://github.com/shriarul5273/depth_estimation/blob/main/docs/adding_a_model.md) |
 
 ---
@@ -130,7 +131,7 @@ All models support inference and CLI. The Trainable column indicates fine-tuning
 | MoGe | v1 vitl / v2 vitl / v2 vitb / v2 vits (+ normal variants) | Metric | ❌ |
 | OmniVGGT | vitl | Metric | ✅ |
 | VGGT | standard / commercial | Metric | ✅ |
-| S2M2 (stereo) | s / m / l / xl | Relative (disparity); metric via `infer()` | ❌ |
+| S2M2 (stereo) | s / m / l / xl | Relative (disparity); metric via `infer()` | ✅ |
 
 ---
 

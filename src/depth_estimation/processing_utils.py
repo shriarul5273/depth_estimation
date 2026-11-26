@@ -55,7 +55,7 @@ class DepthProcessor:
         self.keep_aspect_ratio = getattr(config, "keep_aspect_ratio", True)
         # Stereo models (S2M2) take a rectified (left, right) pair per sample
         # instead of a single image; see preprocess().
-        self.is_stereo = getattr(config, "is_stereo", False)
+        self.is_stereo = getattr(config, "is_stereo", False) is True
         self._model_type = getattr(config, "model_type", "base")
 
     @classmethod

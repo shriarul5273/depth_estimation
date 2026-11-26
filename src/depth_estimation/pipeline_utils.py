@@ -130,10 +130,11 @@ class DepthPipeline:
 
     def stream(
         self,
-        source: Union[str, int],
+        source: Union[str, int, tuple],
         batch_size: int = 1,
         colormap: str = "inferno",
         temporal_smoothing: float = 0.0,
+        stereo_layout: Optional[str] = None,
     ) -> Generator[DepthOutput, None, None]:
         """Stream depth results frame-by-frame from a video source.
 
@@ -147,6 +148,10 @@ class DepthPipeline:
             batch_size: Frames per forward pass.
             colormap: Matplotlib colormap for ``colored_depth``.
             temporal_smoothing: EMA coefficient (0.0 = disabled, 0.9 = heavy).
+            stereo_layout: Stereo models only. Pass ``source=(left, right)``
+                for two synchronized sources, or one packed source with
+                ``stereo_layout="sbs"`` (side by side) or ``"tab"`` (top and
+                bottom).
 
         Yields:
             :class:`~depth_estimation.output.DepthOutput` per frame.
@@ -157,11 +162,15 @@ class DepthPipeline:
             for result in pipe.stream("video.mp4", temporal_smoothing=0.5):
                 print(result.metadata["frame_index"], result.depth.shape)
         """
-        from .video import VideoStream
+        from .video import open_stream
         from .processing_utils import DepthProcessor
 
-        stream = VideoStream(
-            source, batch_size=batch_size, temporal_smoothing=temporal_smoothing
+        stream = open_stream(
+            source,
+            is_stereo=getattr(self.model.config, "is_stereo", False) is True,
+            stereo_layout=stereo_layout,
+            batch_size=batch_size,
+            temporal_smoothing=temporal_smoothing,
         )
         try:
             for frame_rgb, frame_meta in stream:
@@ -181,13 +190,14 @@ class DepthPipeline:
 
     def process_video(
         self,
-        input_path: str,
+        input_path: Union[str, tuple],
         output_path: str,
         colormap: str = "inferno",
         side_by_side: bool = True,
         fps: Optional[float] = None,
         temporal_smoothing: float = 0.0,
         batch_size: int = 1,
+        stereo_layout: Optional[str] = None,
     ) -> None:
         """Process a video file and write the depth output to disk.
 
@@ -201,6 +211,8 @@ class DepthPipeline:
             fps: Output FPS. ``None`` matches the source FPS.
             temporal_smoothing: EMA coefficient (0.0 = disabled).
             batch_size: Frames per forward pass.
+            stereo_layout: Stereo models with one packed source: ``"sbs"``
+                or ``"tab"``. For two sources pass ``input_path=(left, right)``.
         """
         from .video import process_video as _process_video
 
@@ -213,6 +225,7 @@ class DepthPipeline:
             fps=fps,
             temporal_smoothing=temporal_smoothing,
             batch_size=batch_size,
+            stereo_layout=stereo_layout,
         )
 
 

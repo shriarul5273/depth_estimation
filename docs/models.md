@@ -168,10 +168,10 @@ and float16.
 
 | Variant ID | Channels | Transformers | Params | Source | Inference | CLI | Trainable |
 |---|---|---|---|---|:---:|:---:|:---:|
-| `s2m2-s` | 128 | 1 | 26.5M | `minimok/s2m2` (`CH128NTR1.pth`) | ✅ | ✅ | ❌⁶ |
-| `s2m2-m` | 192 | 2 | 80.5M | `minimok/s2m2` (`CH192NTR2.pth`) | ✅ | ✅ | ❌⁶ |
-| `s2m2-l` | 256 | 3 | 181M | `minimok/s2m2` (`CH256NTR3.pth`) | ✅ | ✅ | ❌⁶ |
-| `s2m2-xl` | 384 | 3 | 406M | `minimok/s2m2` (`CH384NTR3.pth`) | ✅ | ✅ | ❌⁶ |
+| `s2m2-s` | 128 | 1 | 26.5M | `minimok/s2m2` (`CH128NTR1.pth`) | ✅ | ✅ | ✅ |
+| `s2m2-m` | 192 | 2 | 80.5M | `minimok/s2m2` (`CH192NTR2.pth`) | ✅ | ✅ | ✅ |
+| `s2m2-l` | 256 | 3 | 181M | `minimok/s2m2` (`CH256NTR3.pth`) | ✅ | ✅ | ✅ |
+| `s2m2-xl` | 384 | 3 | 406M | `minimok/s2m2` (`CH384NTR3.pth`) | ✅ | ✅ | ✅ |
 
 Code and weights are released under **CC BY-NC 4.0** (non-commercial use only).
 
@@ -199,10 +199,8 @@ out["confidence"]   # probability the disparity error is under 4 px
 rectified pairs, `config.refine_iter` sets the number of refinement steps
 (default 3), and `config.precision` defaults to float16 on CUDA, as upstream.
 
-⁶ `DepthTrainer` and the evaluation datasets are monocular. `model.net` is a
-plain `nn.Module` if you want to train S2M2 with your own stereo loop. ONNX
-export through `export_onnx()` is not supported, since the exporter traces a
-single 3-channel image.
+Stereo video, Middlebury / KITTI 2015 evaluation, fine-tuning, ONNX export
+and quantization are covered in the [stereo guide](stereo.md).
 
 ---
 

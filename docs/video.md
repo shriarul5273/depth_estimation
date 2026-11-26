@@ -141,6 +141,12 @@ pipe.process_video("input.mp4", "out.mp4", batch_size=4)
 
 ---
 
+## Stereo video
+
+For stereo models pass `source=(left, right)` (two synchronized sources) or one packed source with `stereo_layout="sbs"` / `"tab"`, to both `stream()` and `process_video()`. See the [stereo guide](stereo.md#video).
+
+---
+
 ## `VideoStream` class
 
 For lower-level control, use `VideoStream` directly:

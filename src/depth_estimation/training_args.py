@@ -56,10 +56,17 @@ class DepthTrainingArguments:
             Run validation every N epochs. Default 1.
         log_every_n_steps:
             Log training metrics every N gradient steps. Default 50.
+        disparity_loss:
+            Stereo models only: ``"smooth_l1"`` (default) or ``"l1"`` — see
+            :class:`~depth_estimation.losses.DisparityLoss`. The depth loss
+            weights above do not apply to stereo models.
         eval_metric:
             Primary metric for selecting the best checkpoint.
             One of ``"abs_rel"``, ``"sq_rel"``, ``"rmse"``, ``"rmse_log"``,
             ``"delta1"``, ``"delta2"``, ``"delta3"``. Default ``"abs_rel"``.
+            For stereo models one of ``"epe"``, ``"bad1"``, ``"bad2"``,
+            ``"bad3"``, ``"d1"``; a depth metric given for a stereo model
+            falls back to ``"epe"``.
         lower_is_better:
             Whether a lower ``eval_metric`` is better. True for error metrics
             (``abs_rel``, ``sq_rel``, ``rmse``, ``rmse_log``); False for
@@ -104,6 +111,7 @@ class DepthTrainingArguments:
     si_loss_weight: float = 1.0
     grad_loss_weight: float = 0.5
     si_lam: float = 0.85
+    disparity_loss: str = "smooth_l1"
 
     # Checkpointing / logging
     save_every_n_epochs: int = 5
@@ -128,6 +136,12 @@ class DepthTrainingArguments:
         "delta1",
         "delta2",
         "delta3",
+        # stereo (disparity) metrics
+        "epe",
+        "bad1",
+        "bad2",
+        "bad3",
+        "d1",
     )
 
     def __post_init__(self):
@@ -140,6 +154,10 @@ class DepthTrainingArguments:
             raise ValueError(
                 f"eval_metric must be one of {self._VALID_METRICS}, "
                 f"got {self.eval_metric!r}"
+            )
+        if self.disparity_loss not in ("smooth_l1", "l1"):
+            raise ValueError(
+                f"disparity_loss must be 'smooth_l1' or 'l1', got {self.disparity_loss!r}"
             )
         if self.batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {self.batch_size}")

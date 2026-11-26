@@ -57,7 +57,8 @@ def profile_latency(
                       ``None`` on CPU / MPS.
         model_id      Model identifier string (when *model* is a string).
         device        Device string used for the run.
-        input_shape   ``(batch_size, 3, input_size, input_size)``.
+        input_shape   ``(batch_size, C, input_size, input_size)``; ``C`` is
+                      3, or 6 for stereo models (left + right).
         ============  ========================================================
 
     Example::
@@ -87,9 +88,12 @@ def profile_latency(
         loaded_model = loaded_model.half()
 
     dtype = torch.float16 if half else torch.float32
-    dummy = torch.randn(
-        batch_size, 3, input_size, input_size, dtype=dtype, device=device
+    # Stereo models (S2M2) take a (left, right) pair stacked on channels.
+    channels = (
+        6 if getattr(getattr(loaded_model, "config", None), "is_stereo", False) is True else 3
     )
+    input_shape = (batch_size, channels, input_size, input_size)
+    dummy = torch.randn(*input_shape, dtype=dtype, device=device)
 
     is_cuda = device.startswith("cuda")
 
@@ -141,5 +145,5 @@ def profile_latency(
         "memory_mb": memory_mb,
         "model_id": model_id,
         "device": device,
-        "input_shape": (batch_size, 3, input_size, input_size),
+        "input_shape": input_shape,
     }

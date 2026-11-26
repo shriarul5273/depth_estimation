@@ -49,6 +49,8 @@ load_dataset(
 | `kitti_eigen` | No (registration required) | Sparse LiDAR, metric (metres) | Outdoor | 697 images |
 | `folder` | N/A | Any | Any | N/A |
 
+Stereo datasets (`middlebury_2014`, `kitti_2015`, `stereo_folder`) return left + right images and disparity instead; see the [stereo guide](stereo.md#datasets).
+
 ### Output schema
 
 Every dataset returns a `dict` with three keys:

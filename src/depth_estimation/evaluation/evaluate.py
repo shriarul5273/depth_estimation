@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from .metrics import Evaluator, align_least_squares
+from .metrics import STEREO_METRICS, Evaluator, StereoEvaluator, align_least_squares
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ _METRIC_HEADERS = [
 _DATASET_ALIASES = {
     "nyu": "nyu_depth_v2",
     "kitti": "kitti_eigen",
+    "middlebury": "middlebury_2014",
 }
 
 
@@ -129,6 +130,13 @@ def evaluate(
         Dict with keys ``abs_rel``, ``sq_rel``, ``rmse``, ``rmse_log``,
         ``delta1``, ``delta2``, ``delta3``, ``n_pixels``, ``n_samples``.
 
+        For stereo models (``config.is_stereo``, e.g. S2M2) on a stereo
+        dataset (``middlebury_2014``, ``kitti_2015``, ``stereo_folder``):
+        disparity metrics ``epe``, ``bad1``, ``bad2``, ``bad3``, ``d1`` (see
+        :class:`StereoEvaluator`), ``n_pixels``, ``n_samples``. Each pair is
+        run at its native resolution through ``model.infer()``; ``align``
+        and ``batch_size`` do not apply.
+
     Example::
 
         from depth_estimation.evaluation import evaluate
@@ -177,6 +185,19 @@ def evaluate(
         base_ds = load_dataset(name, **kwargs)
     else:
         base_ds = dataset
+
+    is_stereo_model = getattr(loaded_model.config, "is_stereo", False) is True
+    is_stereo_data = getattr(base_ds, "is_stereo", False) is True
+    if is_stereo_model != is_stereo_data:
+        raise ValueError(
+            f"{'Stereo' if is_stereo_model else 'Monocular'} model "
+            f"{loaded_model.config.model_type!r} cannot be evaluated on a "
+            f"{'stereo' if is_stereo_data else 'monocular'} dataset. Stereo "
+            "models need a stereo dataset (middlebury_2014, kitti_2015, "
+            "stereo_folder) and monocular models a depth dataset."
+        )
+    if is_stereo_model:
+        return _evaluate_stereo(loaded_model, base_ds, num_samples, num_workers)
 
     if num_samples is not None:
         # Wrap with a Subset
@@ -249,6 +270,62 @@ def evaluate(
                     mask.unsqueeze(0),
                 )
                 n_samples += 1
+
+    results = ev.compute()
+    results["n_samples"] = n_samples
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Stereo evaluation
+# ---------------------------------------------------------------------------
+
+
+class _StereoEvalDataset(Dataset):
+    """Native-resolution ``(left, right, disparity, valid)`` numpy samples."""
+
+    def __init__(self, base, indices: List[int]) -> None:
+        self.base = base
+        self.indices = indices
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+    def __getitem__(self, index: int):
+        return self.base._masked_sample(self.indices[index])
+
+
+def _identity(sample):
+    return sample
+
+
+def _evaluate_stereo(model, base_ds, num_samples: Optional[int], num_workers: int):
+    """Disparity metrics for a stereo model, one pair at a time."""
+    n = len(base_ds) if num_samples is None else min(num_samples, len(base_ds))
+    loader = DataLoader(
+        _StereoEvalDataset(base_ds, list(range(n))),
+        batch_size=None,
+        shuffle=False,
+        num_workers=num_workers,
+        collate_fn=_identity,
+    )
+    try:
+        from tqdm import tqdm
+
+        iterable = tqdm(loader, desc="Evaluating", unit="pair", leave=True)
+    except ImportError:
+        iterable = loader
+
+    ev = StereoEvaluator()
+    n_samples = 0
+    for left, right, disp, valid in iterable:
+        pred = model.infer(left, right)["disparity"]
+        ev.update(
+            pred.cpu(),
+            torch.from_numpy(np.asarray(disp)),
+            torch.from_numpy(np.asarray(valid)),
+        )
+        n_samples += 1
 
     results = ev.compute()
     results["n_samples"] = n_samples
@@ -333,7 +410,10 @@ def compare(
             )
         except Exception as exc:
             logger.error("Failed to evaluate %s: %s", model_id, exc)
-            result = {k: float("nan") for k in _METRIC_HEADERS}
+            headers = (
+                STEREO_METRICS if getattr(base_ds, "is_stereo", False) is True else _METRIC_HEADERS
+            )
+            result = {k: float("nan") for k in headers}
             result["n_samples"] = 0
 
         all_results[model_id] = result
@@ -351,8 +431,11 @@ def compare(
 
 def _print_table(results: Dict[str, Dict[str, float]]) -> None:
     """Print a formatted comparison table to stdout."""
-    lower = ["abs_rel", "sq_rel", "rmse", "rmse_log"]
-    higher = ["delta1", "delta2", "delta3"]
+    if any("epe" in r for r in results.values()):
+        lower, higher = list(STEREO_METRICS), []
+    else:
+        lower = ["abs_rel", "sq_rel", "rmse", "rmse_log"]
+        higher = ["delta1", "delta2", "delta3"]
     headers = lower + higher
 
     col_w = max(len(m) for m in results) + 2

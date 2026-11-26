@@ -27,6 +27,9 @@ class BaseDepthDataset(ABC):
         max_depth:  Pixels with depth above this value are masked out.
     """
 
+    #: Monocular depth dataset (stereo datasets set this True).
+    is_stereo = False
+
     def __init__(
         self,
         transform=None,
